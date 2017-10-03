@@ -3,6 +3,7 @@
 #include<intrins.h>
 #include "at89c5131.h"
 #include "stdio.h"
+#include "math.h"
 #define dport P2
 #define LED P0
 
@@ -14,19 +15,8 @@ sbit cs2=P3^1;		// chip select 2, selects controller 2
 sbit rst=P3^2;
 sbit left = P1^3;
 sbit right = P1^4;
-sbit up=P1^5;
-unsigned char c,finalp,finalc,temp,z=0;
-unsigned char p;
 
-void sdelay(int delay)
-{
-	char d=0;
-	while(delay>0)
-	{
-		for(d=0;d<382;d++);
-		delay--;
-	}
-}
+unsigned char c,finalp,p,finalc,temp,j,k,l,y,fucked,z=0;
 
 void delay(unsigned int value)
 {
@@ -62,7 +52,7 @@ void displayon() // step 1
 void setpage(unsigned char x) // step 2 
 {
 	ctrloff();
-	dport= 0xb8|x;	   //0xb8 represents Page 0 // 10111xxx
+	dport= 0xb8|x;	   //0xb8 represents Page 0 // 1011xxx
 	cs1=1;
 	cs2=1;
 	rs=0;               //instruction mode , write operation
@@ -84,7 +74,9 @@ void setcolumn(unsigned char y) //step 3 - setting of column address
 		rw=0;
 		en=1;
 		delay(1); 
-		en=0;		
+		en=0;
+		
+		
 	}
 	else
 	{ 
@@ -116,7 +108,6 @@ void lcddata(unsigned char *value,unsigned int limit) // writing the data in per
 	{
 		if(c<64)
 		{
-			setcolumn(c);
 			dport=value[i];
 			cs1=1;cs2=0;
 			rs=1;
@@ -126,6 +117,7 @@ void lcddata(unsigned char *value,unsigned int limit) // writing the data in per
 			en=0;
 			c++;
 		}
+
 		else
 		{
 			setcolumn(c); 
@@ -144,9 +136,20 @@ void lcddata(unsigned char *value,unsigned int limit) // writing the data in per
 }
 
 // It must be note down that the LCD doesnt have a single command to clear the entire screen.
-// Hence the screen is cleared by writing '0' data to the screen
+// Hence the screen is clearedd by writing '0' data to the screen
 // This function cleares the entire screen
 void clrlcd()
+{
+    unsigned char i,j;
+    for (i=0;i < 8;i++)
+    {
+	  setpage(i);
+	  setcolumn(8);
+	  for (j= 8 ;j < 128; j++)
+            lcddata(&z,1);
+    }
+}
+void clrlcd1()
 {
     unsigned char i,j;
     for (i=0;i < 8;i++)
@@ -215,88 +218,124 @@ void write_pixel(unsigned char x,unsigned char y,char pixel_data)
 void draw_boundary(void)
 {
 	  char byte=0xFF,index=0;
-		// drawing the left boundary
 	  for(index=0;index<8;index++)
 	  {
-      set_loc(index,0);
+      set_loc(index,01);
 		  lcddata(&byte,1);
 		}
-		// drawing the right boundary
+
+			
 		for(index=0;index<8;index++)
 	  {
-		  set_loc(index,127);
+		  set_loc(index,126);
 		  lcddata(&byte,1);
 		}
-		// drawing the upper and bottom boundary
-		for(index=2;index<127;index++){
-			byte=0x01;
-			set_loc(0, index);
-			lcddata(&byte, 1);
-			byte=0x80;
-			set_loc(7, index);
-			lcddata(&byte, 1);
-		}
 }
 
-void drawstraight(unsigned char length,unsigned char x,unsigned char y )
+void remove(unsigned char x)
+{
+	char byte1 = 0x00, index =0;
+	set_loc(x%8,0);
+	lcddata(&byte1,1);	
+	set_loc(x%8,01);
+	lcddata(&byte1,1);
+	set_loc(x%8,02);
+		lcddata(&byte1,1);
+	set_loc((x+1)%8,0);
+	lcddata(&byte1,1);	
+	set_loc((x+1)%8,01);
+	lcddata(&byte1,1);
+	set_loc((x+1)%8,02);
+		lcddata(&byte1,1);
+	
+}
+
+void draw(unsigned char x)
 {
 	char byte = 0xff,index=0;
-	set_loc(x,y);
-	for(index=0;index<length;index++)
-	{
-		set_loc((index+x)%8,y%128);
-		lcddata(&byte,1);
-		set_loc((index+x)%8,(y+1)%128);
-		lcddata(&byte,1);
 	
-	}
-	
-}
-
-void draw(unsigned char length,unsigned char x,unsigned char y )
-{
-	char byte = 0x3b,index=0;
-	for(index=0;index<length;index++)
-	{
-		set_loc(x%8,(y+index)%128);
+		set_loc(x%8,0);
+	lcddata(&byte,1);	
+	set_loc(x%8,01);
+	lcddata(&byte,1);
+	set_loc(x%8,02);
 		lcddata(&byte,1);
-	}
+	set_loc((x+1)%8,0);
+	lcddata(&byte,1);	
+	set_loc((x+1)%8,01);
+	lcddata(&byte,1);
+	set_loc((x+1)%8,02);
+		lcddata(&byte,1);
 }
 
 void moveright(void)
 {
-	while(right==1){
-		draw(4,p,c++);
+	if((P1&0X04)==0X04){
+		remove(finalp);
+		draw(++finalp);
+		
 		delay(10000);
-		clrlcd();
+		delay(10000);
+		delay(10000);
+		//clrlcd();
 	}
-	finalp=p;
-	finalc=c;
+	
 }
 
 void moveleft(void)
 {
-	while(left==1){
-		draw(4,p,c--);
-		delay(10000);
-		clrlcd();
-	}
-	finalp=p;
-	finalc=c;
-}
+	if((P1&0X08)==0X08){
 	
-void moveup(void)
-{
-	while(up==1){
-		draw(4,p++,c);
+		
+		remove(finalp);
+		draw(--finalp);
 		delay(10000);
-		clrlcd();
+		delay(10000);
+		delay(10000);
+		//clrlcd();
 	}
-	finalp=p;
-	finalc=c;
 }
 
-void draw_grid_lines(void)     // not of use for our project
+drawblock(unsigned char  x,unsigned char y)
+{
+	char byte = 0xff;
+	
+	for(k=0;k<8;k++){
+		
+	set_loc(x,y*8+k);
+	lcddata(&byte,1);
+		}
+	
+}
+
+	
+void startdumping(unsigned char x)
+{
+	x=x%8;
+//	y=y%128;
+	for(j=15;j>8;j--){
+	drawblock(x,j);
+		drawblock(y,j-8);
+		moveright();
+		moveleft();
+	delay(10000);
+	delay(10000);
+		delay(10000);
+		moveright();
+		moveleft();
+		if(j==9){
+		if((y!=finalp)||(y!=(finalp+1))){
+		fucked=1;
+		}
+		
+		}
+	clrlcd();
+	}
+	y=x;
+	}
+
+	
+void draw_grid_lines(void)
 {
 	  char byte=0x11,index=0;
 	  for(index=1;index<10;index++)
@@ -320,70 +359,42 @@ void draw_grid_lines(void)     // not of use for our project
 		}			
 }
 
-// this function will draw a box (8x8) 
-void draw_box(unsigned char pagenumber, unsigned char start_column){
-		char index, byte=0xFF, limit=start_column+8;
-		if(start_column > 127)
-			return;
-		else if(start_column>120){
-			limit=128;
-		}
-		for(index=start_column;index<limit;index++){
-				set_loc(pagenumber, index);
-				lcddata(&byte, 1);
-		}
-}
 
-void clear_box(unsigned char pagenumber, unsigned char start_column){
-		char index, byte=0x00, limit=start_column+8;
-		if(start_column > 127)
-			return;
-		else if(start_column>120){
-			limit=128;
-		}
-		for(index=start_column;index<limit;index++){
-				set_loc(pagenumber, index);
-				lcddata(&byte, 1);
-		}
-}
-void move_down(unsigned char pagenumber, unsigned char start_column){
-		clear_box(pagenumber, start_column);
-		draw_box(pagenumber, start_column-8);
-}
 void main()
 { 
-		unsigned char start_column=120, pagenumber=5;
 		rst=1;
 	  temp=0x88;
 	  clrlcd();
 		displayon();
-	  LED&=~0x80;     // what's the purpose of this ??
-	  P1|=0x0F;       // configuring the port P1 as output/input pins
+	  LED&=~0x80;
+	  P1|=0x0F;
 	  P3|=0x38;
+	clrlcd1();
+	  draw(4);
+	  finalp=p;
+		//startdumping();
+		
 	  while(1)
 	  {
-	    draw_boundary(); 
-			draw_box(pagenumber, start_column);
-			while(start_column >=8){
-					move_down(pagenumber, start_column);
-					start_column -= 8;
-					delay(100000);
-			}
-		  //p=finalp;c=finalc;
-		  //moveright();
-		  //moveleft(); 
+	      //draw_boundary();  
+		  
+		  startdumping(rand());
+	      
+		  
+		 //moveright();
+		  //moveleft();
+
+	//			bullet(k);
 		  //moveup(); 
 	      
-			
-			
+			if(fucked==1)
+				break;
 		
-			//while((P1&0X01)==0X01);
-			while(1);
-			delay(10000);
+			while((P1&0X01)==0X01);
 			
-			clrlcd();
 			
 	  }
+		while(1);
 }
  
 
