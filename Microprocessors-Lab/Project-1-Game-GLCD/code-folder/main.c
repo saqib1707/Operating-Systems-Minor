@@ -1,11 +1,18 @@
 /*Program to display simple text on Graphics LCD*/
 
-#include<intrins.h>
+#include <intrins.h>
 #include "at89c5131.h"
 #include "stdio.h"
+#include "stdlib.h"
 #include "math.h"
 #define dport P2
 #define LED P0
+
+void numpad_Int();
+void find_col();
+void moveleft();
+void moveright();
+void delay_ms(int);
 
 sbit rs=P0^0;       // Register select. used to select between command and data
 sbit rw=P0^1;      // Read write select. used to select if data is read or written to LCD controller
@@ -15,11 +22,60 @@ sbit cs2=P3^1;		// chip select 2, selects controller 2
 sbit rst=P3^2;
 sbit left = P1^3;
 sbit right = P1^4;
+sbit r3 = P0^3;
+sbit c0 = P0^4;
+sbit c1 = P0^5;
+sbit c2 = P0^6;
+sbit c3 = P0^7;
 
-unsigned char c,finalp,p,finalc,temp,j,k,l,y,fucked,z=0;
+unsigned char c,p,temp,j,k,l,y,fucked,z=0;
+int final_pos, block_cleared=0, numpad_key=4;
 
-void delay(unsigned int value)
-{
+void numpad_Int(void) interrupt 0 {
+	delay_ms(10);
+	find_col();
+	IE0_=0;
+}
+
+void find_col(){
+	ACC = P0;
+	ACC &= 0xF0;
+	if(ACC != 0xF0){
+		if(c0 == 0){ 
+			//P1 = 0x10;
+			numpad_key=0;
+		}
+		else if(c1 == 0){ 
+			//P1 = 0x20;
+			numpad_key=1;
+		}
+		else if(c2 == 0){ 
+			//P1 = 0x40;
+			numpad_key=2;
+		}
+		else if(c3 == 0){
+			//P1 = 0x80;
+			numpad_key=3;
+		}
+	}
+	switch(numpad_key){
+		case 0:
+			moveleft();
+			break;
+		case 1:
+			moveright();
+			break;
+		case 2:
+			//movebullet();
+			break;
+		case 3:
+			break;
+		default:
+			break;
+	}
+}
+
+void delay(unsigned int value){
 	unsigned int temp=0;
 	  while(temp<value)
 		{
@@ -27,8 +83,15 @@ void delay(unsigned int value)
 		}
 }
 
-void ctrloff()
-{
+void delay_ms(int delay){
+	int d=0;
+	while(delay>0){
+		for(d=0;d<382;d++);
+		delay--;
+	}
+}
+
+void ctrloff(){
 	rs=0;
 	rw=0;
 	en=0;
@@ -64,8 +127,7 @@ void setpage(unsigned char x) // step 2
 
 void setcolumn(unsigned char y) //step 3 - setting of column address
 {
-	if(y<64)
-	{
+	if(y<64){
 		ctrloff();
 		c=y;
 		dport=0x40|(y&63);	  //0x40 represents Column 0 //01xxxxxx
@@ -78,8 +140,7 @@ void setcolumn(unsigned char y) //step 3 - setting of column address
 		
 		
 	}
-	else
-	{ 
+	else{ 
 		c=y;
 		dport=0x40|((y-64)&63);	  //0x40 represents Column 0
 		cs2=1;cs1=0;    // page 2 on
@@ -92,8 +153,7 @@ void setcolumn(unsigned char y) //step 3 - setting of column address
 }
 
 
-void set_loc(unsigned char x,unsigned char y) 
-{
+void set_loc(unsigned char x,unsigned char y){
 	setpage(x);
 	setcolumn(y);
 	p=x;
@@ -104,10 +164,8 @@ void set_loc(unsigned char x,unsigned char y)
 void lcddata(unsigned char *value,unsigned int limit) // writing the data in perticular column
 {
 	unsigned int i;
-	for(i=0;i<limit;i++)
-	{
-		if(c<64)
-		{
+	for(i=0;i<limit;i++){
+		if(c<64){
 			dport=value[i];
 			cs1=1;cs2=0;
 			rs=1;
@@ -117,9 +175,7 @@ void lcddata(unsigned char *value,unsigned int limit) // writing the data in per
 			en=0;
 			c++;
 		}
-
-		else
-		{
+		else{
 			setcolumn(c); 
 			dport=value[i];
 			cs2=1;cs1=0;
@@ -138,26 +194,13 @@ void lcddata(unsigned char *value,unsigned int limit) // writing the data in per
 // It must be note down that the LCD doesnt have a single command to clear the entire screen.
 // Hence the screen is clearedd by writing '0' data to the screen
 // This function cleares the entire screen
-void clrlcd()
-{
+void clrlcd(unsigned char col){
     unsigned char i,j;
-    for (i=0;i < 8;i++)
-    {
-	  setpage(i);
-	  setcolumn(8);
-	  for (j= 8 ;j < 128; j++)
-            lcddata(&z,1);
-    }
-}
-void clrlcd1()
-{
-    unsigned char i,j;
-    for (i=0;i < 8;i++)
-    {
-	  setpage(i);
-	  setcolumn(0);
-	  for (j= 0 ;j < 128; j++)
-            lcddata(&z,1);
+    for (i=0;i < 8;i++){
+			setpage(i);
+			setcolumn(col);
+			for(j = col; j < 128; j++)
+							lcddata(&z,1);
     }
 }
 
@@ -223,8 +266,6 @@ void draw_boundary(void)
       set_loc(index,01);
 		  lcddata(&byte,1);
 		}
-
-			
 		for(index=0;index<8;index++)
 	  {
 		  set_loc(index,126);
@@ -232,109 +273,133 @@ void draw_boundary(void)
 		}
 }
 
-void remove(unsigned char x)
-{
-	char byte1 = 0x00, index =0;
-	set_loc(x%8,0);
-	lcddata(&byte1,1);	
-	set_loc(x%8,01);
-	lcddata(&byte1,1);
-	set_loc(x%8,02);
-		lcddata(&byte1,1);
-	set_loc((x+1)%8,0);
-	lcddata(&byte1,1);	
-	set_loc((x+1)%8,01);
-	lcddata(&byte1,1);
-	set_loc((x+1)%8,02);
-		lcddata(&byte1,1);
-	
+/*void clear_shooter(unsigned char page_no, char byte){
+	//char byte = 0x00, index =0;
+	unsigned char i;
+	for(i=0; i<2; i++){
+		set_loc(page_no%8, i);
+		lcddata(&byte, 1);
+	}
+}*/
+
+void draw_shooter(unsigned char page_no, char byte){
+	//char byte = 0xff, index = 0;
+	unsigned char i;
+	for(i=0; i<2; i++){
+		set_loc(page_no%8, i);
+		lcddata(&byte, 1);
+	}
 }
 
-void draw(unsigned char x)
-{
-	char byte = 0xff,index=0;
-	
-		set_loc(x%8,0);
-	lcddata(&byte,1);	
-	set_loc(x%8,01);
-	lcddata(&byte,1);
-	set_loc(x%8,02);
+void moveright(void){
+		draw_shooter(final_pos, 0x00);
+		final_pos = (final_pos+1);
+		if(final_pos == 8){
+			final_pos = 7;
+		}
+		draw_shooter(final_pos, 0xFF);
+		delay_ms(100);
+}
+
+void moveleft(void){
+		draw_shooter(final_pos, 0x00);
+		final_pos = (final_pos-1);
+		if(final_pos == -1){
+			final_pos = 0;
+		}
+		draw_shooter(final_pos, 0xFF);
+		delay_ms(100);
+}
+
+void drawblock(unsigned char x,unsigned char y, char byte){
+	//char byte = 0xFF;
+	unsigned char k;
+	for(k=0;k<8;k++){	
+		set_loc(x,y*8+k);
 		lcddata(&byte,1);
-	set_loc((x+1)%8,0);
-	lcddata(&byte,1);	
-	set_loc((x+1)%8,01);
-	lcddata(&byte,1);
-	set_loc((x+1)%8,02);
+	}
+}
+
+/*void clearblock(unsigned char x, unsigned char y){
+	char byte = 0x00;
+	unsigned char k;
+	for(k=0;k<8;k++){	
+		set_loc(x,y*8+k);
 		lcddata(&byte,1);
-}
-
-void moveright(void)
-{
-	if((P1&0X04)==0X04){
-		remove(finalp);
-		draw(++finalp);
-		
-		delay(10000);
-		delay(10000);
-		delay(10000);
-		//clrlcd();
 	}
-	
-}
+}*/
 
-void moveleft(void)
-{
-	if((P1&0X08)==0X08){
-	
-		
-		remove(finalp);
-		draw(--finalp);
-		delay(10000);
-		delay(10000);
-		delay(10000);
-		//clrlcd();
+void draw_bullet(unsigned char page_number, unsigned char col, char byte){
+	// the bullet \size is 4x4
+	unsigned char k;
+	for(k=0; k<3 ;k++){
+		set_loc(page_number, col*4+k);
+		lcddata(&byte, 1);
 	}
 }
-
-drawblock(unsigned char  x,unsigned char y)
-{
-	char byte = 0xff;
-	
-	for(k=0;k<8;k++){
-		
-	set_loc(x,y*8+k);
-	lcddata(&byte,1);
+/*
+void move_bullet(unsigned char page_number, unsigned char col){
+	unsigned char j;
+	char byte;
+	for(j=1; j<=31; j++){
+		byte=0x3C;
+		draw_bullet(final_pos, j, byte);
+		delay_ms(10); 
+		if((j*4 == col*8) && (page_number==final_pos)){ // if the bullet collides with the block then clear both
+			drawblock(page_number, col, 0x00);
+			block_cleared=1;
+			break;
 		}
-	
+		byte=0x00;
+		draw_bullet(final_pos, j, byte);    // so that the user can watch the bullet going up
+	}
+}
+*/
+void startdumping(unsigned char page_number){
+		unsigned char col; //col_second_block;
+		unsigned char j, temp=1;
+		//col_second_block=rand()%16;
+		for(col=15;col>=1;col--){
+			drawblock(page_number,col, 0xFF);
+			delay_ms(100);
+			if(numpad_key == 2){           // shoot key pressed
+				//move_bullet(page_number, col);
+				for(j=temp; j<=3+temp && j<=31; j++){
+					//draw_bullet(final_pos, j, 0x3C);
+					//delay_ms(10);
+					if((j*4+4 == col*8) && (page_number==final_pos)){ // if the bullet collides with the block then clear both
+						delay_ms(100);
+						drawblock(page_number, col, 0x00);
+						draw_bullet(final_pos, j, 0x00);
+						block_cleared=1;
+						break;
+					}
+					//draw_bullet(final_pos, j, 0x00);
+				}
+				draw_bullet(final_pos, j-1, 0x3C);
+				delay_ms(20);
+				draw_bullet(final_pos, j-1, 0x00);
+				if(block_cleared==1){
+					block_cleared=0;
+					numpad_key=4;
+					break;
+				}
+				temp=j;
+				if(temp==32){
+					numpad_key=4;
+				}
+			}
+			//drawblock(y,j-8);
+			/*if(col==9){
+				if((y!=finalp)||(y!=(finalp+1))){
+					fucked=1;
+				}
+			}*/
+			drawblock(page_number, col, 0x00);
+		}
+		//y=page_number;
 }
 
-	
-void startdumping(unsigned char x)
-{
-	x=x%8;
-//	y=y%128;
-	for(j=15;j>8;j--){
-	drawblock(x,j);
-		drawblock(y,j-8);
-		moveright();
-		moveleft();
-	delay(10000);
-	delay(10000);
-		delay(10000);
-		moveright();
-		moveleft();
-		if(j==9){
-		if((y!=finalp)||(y!=(finalp+1))){
-		fucked=1;
-		}
-		
-		}
-	clrlcd();
-	}
-	y=x;
-	}
-
-	
 void draw_grid_lines(void)
 {
 	  char byte=0x11,index=0;
@@ -360,41 +425,36 @@ void draw_grid_lines(void)
 }
 
 
-void main()
-{ 
+void main(){ 
+		unsigned char page_number;
+		r3 = 0;
+		c0 = 1;
+		c1 = 1;
+		c2 = 1;
+		c3 = 1;
+		IEN0 = 0x81;
 		rst=1;
 	  temp=0x88;
-	  clrlcd();
+	  clrlcd(0);
 		displayon();
-	  LED&=~0x80;
+	  //LED&=~0x80;
 	  P1|=0x0F;
 	  P3|=0x38;
-	clrlcd1();
-	  draw(4);
-	  finalp=p;
-		//startdumping();
-		
-	  while(1)
-	  {
-	      //draw_boundary();  
-		  
-		  startdumping(rand());
-	      
-		  
-		 //moveright();
-		  //moveleft();
+		page_number=3;
+	  draw_shooter(page_number, 0xFF);
+	  final_pos=page_number;
+	  while(1){
+	    //draw_boundary();
+		  page_number=rand()%8;
+		  startdumping(page_number);
 
 	//			bullet(k);
 		  //moveup(); 
 	      
-			if(fucked==1)
-				break;
-		
-			while((P1&0X01)==0X01);
-			
-			
+			//if(fucked==1)
+			//	break;
+			//while((P1&0X01)==0X01);
 	  }
-		while(1);
+		//while(1);
 }
  
-
