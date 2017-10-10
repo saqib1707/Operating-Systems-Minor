@@ -28,59 +28,48 @@ sbit c1 = P0^5;
 sbit c2 = P0^6;
 sbit c3 = P0^7;
 
-unsigned char c,p,temp,j,k,l,y,fucked,z=0;
+unsigned char c,p,temp,j,k,l,y,z, page_number1, fcollision,game_over=0;
+unsigned char fuckit=1;
 int final_pos, block_cleared=0, numpad_key=4;
-
+/*
 void numpad_Int(void) interrupt 0 {
-	delay_ms(10);
+	delay_ms(20);
 	find_col();
 	IE0_=0;
 }
-
+*/
 void find_col(){
 	ACC = P0;
 	ACC &= 0xF0;
 	if(ACC != 0xF0){
-		if(c0 == 0){ 
-			//P1 = 0x10;
-			numpad_key=0;
+		delay_ms(10);
+		ACC = P0;
+		ACC &= 0xF0;
+		if(ACC != 0xF0){
+			if(c0 == 0){ 
+				numpad_key=0;
+			}
+			else if(c1 == 0){ 
+				numpad_key=1;
+			}
+			else if(c2 == 0){ 
+				numpad_key=2;
+			}
+			else if(c3 == 0){
+				numpad_key=3;
+			}
+			else{
+				numpad_key=4;
+			}
 		}
-		else if(c1 == 0){ 
-			//P1 = 0x20;
-			numpad_key=1;
-		}
-		else if(c2 == 0){ 
-			//P1 = 0x40;
-			numpad_key=2;
-		}
-		else if(c3 == 0){
-			//P1 = 0x80;
-			numpad_key=3;
-		}
-	}
-	switch(numpad_key){
-		case 0:
-			moveleft();
-			break;
-		case 1:
-			moveright();
-			break;
-		case 2:
-			//movebullet();
-			break;
-		case 3:
-			break;
-		default:
-			break;
 	}
 }
 
 void delay(unsigned int value){
 	unsigned int temp=0;
-	  while(temp<value)
-		{
-			temp++;
-		}
+	while(temp<value){
+		temp++;
+	}
 }
 
 void delay_ms(int delay){
@@ -100,8 +89,7 @@ void ctrloff(){
 }
 
 //Display on function			 
-void displayon() // step 1
-{ 
+void displayon(){  // step 1 
 	ctrloff();
 	dport=0x3f;  // on display
 	cs1=1;cs2=1; // enable bot halves
@@ -111,9 +99,7 @@ void displayon() // step 1
 	en=0;
 }
 
-
-void setpage(unsigned char x) // step 2 
-{
+void setpage(unsigned char x){ // step 2
 	ctrloff();
 	dport= 0xb8|x;	   //0xb8 represents Page 0 // 1011xxx
 	cs1=1;
@@ -125,8 +111,7 @@ void setpage(unsigned char x) // step 2
 	en=0;
 }
 
-void setcolumn(unsigned char y) //step 3 - setting of column address
-{
+void setcolumn(unsigned char y){ //step 3 - setting of column address
 	if(y<64){
 		ctrloff();
 		c=y;
@@ -136,9 +121,7 @@ void setcolumn(unsigned char y) //step 3 - setting of column address
 		rw=0;
 		en=1;
 		delay(1); 
-		en=0;
-		
-		
+		en=0;		
 	}
 	else{ 
 		c=y;
@@ -152,13 +135,11 @@ void setcolumn(unsigned char y) //step 3 - setting of column address
 	}
 }
 
-
 void set_loc(unsigned char x,unsigned char y){
 	setpage(x);
 	setcolumn(y);
 	p=x;
 }
-
 
 // This function is always called after setcoloumn function is called. c stores the value of coloumn to which data has to be written
 void lcddata(unsigned char *value,unsigned int limit) // writing the data in perticular column
@@ -273,19 +254,16 @@ void draw_boundary(void)
 		}
 }
 
-/*void clear_shooter(unsigned char page_no, char byte){
-	//char byte = 0x00, index =0;
+void draw_shooter(unsigned char page_no, char byte){
 	unsigned char i;
 	for(i=0; i<2; i++){
 		set_loc(page_no%8, i);
 		lcddata(&byte, 1);
 	}
-}*/
-
-void draw_shooter(unsigned char page_no, char byte){
-	//char byte = 0xff, index = 0;
-	unsigned char i;
-	for(i=0; i<2; i++){
+	if(byte!=0x00){
+		byte=0x3C;
+	}
+	for(i=2; i<4; i++){
 		set_loc(page_no%8, i);
 		lcddata(&byte, 1);
 	}
@@ -298,7 +276,7 @@ void moveright(void){
 			final_pos = 7;
 		}
 		draw_shooter(final_pos, 0xFF);
-		delay_ms(100);
+		//delay_ms(50);
 }
 
 void moveleft(void){
@@ -308,26 +286,16 @@ void moveleft(void){
 			final_pos = 0;
 		}
 		draw_shooter(final_pos, 0xFF);
-		delay_ms(100);
+		//delay_ms(50);
 }
 
 void drawblock(unsigned char x,unsigned char y, char byte){
-	//char byte = 0xFF;
 	unsigned char k;
 	for(k=0;k<8;k++){	
 		set_loc(x,y*8+k);
 		lcddata(&byte,1);
 	}
 }
-
-/*void clearblock(unsigned char x, unsigned char y){
-	char byte = 0x00;
-	unsigned char k;
-	for(k=0;k<8;k++){	
-		set_loc(x,y*8+k);
-		lcddata(&byte,1);
-	}
-}*/
 
 void draw_bullet(unsigned char page_number, unsigned char col, char byte){
 	// the bullet \size is 4x4
@@ -337,124 +305,116 @@ void draw_bullet(unsigned char page_number, unsigned char col, char byte){
 		lcddata(&byte, 1);
 	}
 }
-/*
-void move_bullet(unsigned char page_number, unsigned char col){
-	unsigned char j;
-	char byte;
-	for(j=1; j<=31; j++){
-		byte=0x3C;
-		draw_bullet(final_pos, j, byte);
-		delay_ms(10); 
-		if((j*4 == col*8) && (page_number==final_pos)){ // if the bullet collides with the block then clear both
-			drawblock(page_number, col, 0x00);
-			block_cleared=1;
-			break;
-		}
-		byte=0x00;
-		draw_bullet(final_pos, j, byte);    // so that the user can watch the bullet going up
-	}
-}
-*/
+
 void startdumping(unsigned char page_number){
-		unsigned char col; //col_second_block;
-		unsigned char j, temp=1;
-		//col_second_block=rand()%16;
-		for(col=15;col>=1;col--){
-			drawblock(page_number,col, 0xFF);
-			delay_ms(100);
-			if(numpad_key == 2){           // shoot key pressed
-				//move_bullet(page_number, col);
-				for(j=temp; j<=3+temp && j<=31; j++){
-					//draw_bullet(final_pos, j, 0x3C);
-					//delay_ms(10);
-					if((j*4+4 == col*8) && (page_number==final_pos)){ // if the bullet collides with the block then clear both
-						delay_ms(100);
+		unsigned char j,k;
+		int col, collision, new_collision=0;
+		
+		collision=0;
+		for(col=15; col>8; col--){
+			find_col();
+			if(collision!=1){
+				drawblock(page_number, col, 0xFF);
+			}
+			if(fuckit != 1 && new_collision != 1){
+				drawblock(page_number1, col-8, 0xFF);  // new added
+			}
+			delay_ms(200);
+			if(numpad_key == 0){
+				moveleft();
+			}
+			else if(numpad_key == 1){
+				moveright();
+			}
+			else if(numpad_key == 2){           // shoot key pressed
+				for(j=1; j<=31; j++){
+					draw_bullet(final_pos, j, 0x3C);
+					if(j*4+4 == col*8 && page_number==final_pos && collision != 1){
+						collision=1;
+						fcollision=1;
 						drawblock(page_number, col, 0x00);
-						draw_bullet(final_pos, j, 0x00);
-						block_cleared=1;
 						break;
 					}
-					//draw_bullet(final_pos, j, 0x00);
+					if(fuckit != 1 && new_collision != 1){
+						if(j*4+4 == (col-8)*8 && page_number1==final_pos){
+							new_collision=1;
+							drawblock(page_number1, col-8, 0x00);
+							break;
+						}
+					}
 				}
-				draw_bullet(final_pos, j-1, 0x3C);
-				delay_ms(20);
-				draw_bullet(final_pos, j-1, 0x00);
-				if(block_cleared==1){
-					block_cleared=0;
-					numpad_key=4;
-					break;
-				}
-				temp=j;
-				if(temp==32){
-					numpad_key=4;
+				delay_ms(100);
+				for(k=1; k<=j; k++){
+					draw_bullet(final_pos, k, 0x00);
 				}
 			}
-			//drawblock(y,j-8);
-			/*if(col==9){
-				if((y!=finalp)||(y!=(finalp+1))){
-					fucked=1;
-				}
-			}*/
+			numpad_key = 4;
+			if(collision == 1 && new_collision==1){
+				break;
+			}
 			drawblock(page_number, col, 0x00);
+			drawblock(page_number1, col-8, 0x00);
+			/*if((col-8) == 1){
+				game_over=1;
+			}*/
 		}
-		//y=page_number;
+		page_number1 = page_number;
+		if(fcollision==1){
+			fuckit=1;
+			fcollision=0;
+		}
+		else if(fcollision==0){
+			fuckit=0;
+		}
 }
 
-void draw_grid_lines(void)
-{
-	  char byte=0x11,index=0;
-	  for(index=1;index<10;index++)
-	  {
-      set_loc(0,10*index);
-		  lcddata(&byte,1);
-      set_loc(1,10*index);
-		  lcddata(&byte,1);
-      set_loc(2,10*index);
-		  lcddata(&byte,1);
-      set_loc(3,10*index);
-		  lcddata(&byte,1);
-      set_loc(4,10*index);
-		  lcddata(&byte,1);
-      set_loc(5,10*index);
-		  lcddata(&byte,1);
-      set_loc(6,10*index);
-		  lcddata(&byte,1);
-      set_loc(7,10*index);
-		  lcddata(&byte,1);
-		}			
+void draw_grid_lines(void){
+	char byte=0x11,index=0;
+	for(index=1;index<10;index++){
+	    set_loc(0,10*index);
+		lcddata(&byte,1);
+	    set_loc(1,10*index);
+		lcddata(&byte,1);
+	    set_loc(2,10*index);
+		lcddata(&byte,1);
+	    set_loc(3,10*index);
+		lcddata(&byte,1);
+	    set_loc(4,10*index);
+		lcddata(&byte,1);
+	    set_loc(5,10*index);
+		lcddata(&byte,1);
+	    set_loc(6,10*index);
+		lcddata(&byte,1);
+	    set_loc(7,10*index);
+		lcddata(&byte,1);
+	}			
 }
-
 
 void main(){ 
-		unsigned char page_number;
-		r3 = 0;
-		c0 = 1;
-		c1 = 1;
-		c2 = 1;
-		c3 = 1;
-		IEN0 = 0x81;
-		rst=1;
-	  temp=0x88;
-	  clrlcd(0);
-		displayon();
-	  //LED&=~0x80;
-	  P1|=0x0F;
-	  P3|=0x38;
-		page_number=3;
-	  draw_shooter(page_number, 0xFF);
-	  final_pos=page_number;
-	  while(1){
-	    //draw_boundary();
-		  page_number=rand()%8;
-		  startdumping(page_number);
-
-	//			bullet(k);
-		  //moveup(); 
-	      
-			//if(fucked==1)
-			//	break;
-			//while((P1&0X01)==0X01);
-	  }
-		//while(1);
+	unsigned char page_number;
+	r3 = 0;
+	c0 = 1;
+	c1 = 1;
+	c2 = 1;
+	c3 = 1;
+	rst=1;
+	temp=0x88;
+	clrlcd(0);
+	displayon();
+	//LED&=~0x80;
+	P1|=0x0F;
+	P3|=0x38;
+	page_number=3;
+	draw_shooter(page_number, 0xFF);
+	final_pos=page_number;
+	while(1){
+		page_number=rand()%8;
+		startdumping(page_number);
+		
+		/*if(game_over==1){
+			break;
+		}*/
+	}
+	clrlcd(0);
+	while(1);
 }
- 
