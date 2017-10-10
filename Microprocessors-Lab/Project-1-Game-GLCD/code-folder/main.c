@@ -29,7 +29,7 @@ sbit c2 = P0^6;
 sbit c3 = P0^7;
 
 unsigned char c,p,temp,j,k,l,y,z, page_number1, fcollision,game_over=0;
-unsigned char fuckit=1;
+unsigned char var=1;
 int final_pos, block_cleared=0, numpad_key=4;
 /*
 void numpad_Int(void) interrupt 0 {
@@ -308,18 +308,18 @@ void draw_bullet(unsigned char page_number, unsigned char col, char byte){
 
 void startdumping(unsigned char page_number){
 		unsigned char j,k;
-		int col, collision, new_collision=0;
-		
-		collision=0;
+		int col, upper_collision=0, lower_collision=0;
+
+		upper_collision=0;
 		for(col=15; col>8; col--){
 			find_col();
-			if(collision!=1){
+			if(upper_collision!=1){
 				drawblock(page_number, col, 0xFF);
 			}
-			if(fuckit != 1 && new_collision != 1){
+			if(var != 1 && lower_collision != 1){
 				drawblock(page_number1, col-8, 0xFF);  // new added
 			}
-			delay_ms(200);
+			delay_ms(300);
 			if(numpad_key == 0){
 				moveleft();
 			}
@@ -329,15 +329,15 @@ void startdumping(unsigned char page_number){
 			else if(numpad_key == 2){           // shoot key pressed
 				for(j=1; j<=31; j++){
 					draw_bullet(final_pos, j, 0x3C);
-					if(j*4+4 == col*8 && page_number==final_pos && collision != 1){
-						collision=1;
+					if(j*4+4 == col*8 && page_number==final_pos && upper_collision != 1){
+						upper_collision=1;
 						fcollision=1;
 						drawblock(page_number, col, 0x00);
 						break;
 					}
-					if(fuckit != 1 && new_collision != 1){
+					if(var != 1 && lower_collision != 1){
 						if(j*4+4 == (col-8)*8 && page_number1==final_pos){
-							new_collision=1;
+							lower_collision=1;
 							drawblock(page_number1, col-8, 0x00);
 							break;
 						}
@@ -349,22 +349,22 @@ void startdumping(unsigned char page_number){
 				}
 			}
 			numpad_key = 4;
-			if(collision == 1 && new_collision==1){
+			if(upper_collision == 1 && lower_collision == 1){
 				break;
 			}
 			drawblock(page_number, col, 0x00);
 			drawblock(page_number1, col-8, 0x00);
-			/*if((col-8) == 1){
-				game_over=1;
-			}*/
+			if((col-8) == 1){
+				game_over++;
+			}
 		}
 		page_number1 = page_number;
 		if(fcollision==1){
-			fuckit=1;
+			var=1;
 			fcollision=0;
 		}
 		else if(fcollision==0){
-			fuckit=0;
+			var=0;
 		}
 }
 
@@ -410,10 +410,9 @@ void main(){
 	while(1){
 		page_number=rand()%8;
 		startdumping(page_number);
-		
-		/*if(game_over==1){
+		if(game_over==5){
 			break;
-		}*/
+		}
 	}
 	clrlcd(0);
 	while(1);
