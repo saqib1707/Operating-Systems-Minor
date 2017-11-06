@@ -13,13 +13,13 @@ entity control_path is
       opcode_bits:in std_logic_vector(3 downto 0);
 	  RFA3,ZT: in std_logic;
 	  cz_bits,LSB_IR_bits:in std_logic_vector(1 downto 0);
-      A,B,C,D,E,F,G,H,J,K,L,M,N,O,P,Q,R,S,T,U,W:out std_logic
+      A,B,C,D,E,F,G,H,J,K,L,M,N,O,P,Q,R,S,T,U,IR_en,c_en,z_en,zdash_en:out std_logic
 	);
 end entity;
 
 architecture behave of control_path is
 
-type MyState is (S1, S0, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16);
+type MyState is (S1, S0, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15);
 type opcode_store is (ADD, ADZ, ADC, ADI, NDU, NDC, NDZ, LHI, LW, SW, LM, SM, BEQ, JAL, JLR);
 signal present_state, next_state : MyState;
 signal opcode : opcode_store;
@@ -29,15 +29,15 @@ opcode_assign: process (opcode_bits,LSB_IR_bits) is
 begin
   if(opcode_bits = "0000" and LSB_IR_bits ="00") then 
   	opcode <= add;
-  elsif(opcode_bits = "0000" and LSB_IR_bits ="01") then
+  elsif(opcode_bits = "0000" and LSB_IR_bits ="10") then
   	opcode <= adc;
-  elsif(opcode_bits = "0000" and LSB_IR_bits="10") then
+  elsif(opcode_bits = "0000" and LSB_IR_bits="01") then
   	opcode <= adz;
   elsif(opcode_bits = "0010" and LSB_IR_bits="00") then
   	opcode <= ndu;
-  elsif(opcode_bits = "0010" and LSB_IR_bits="01") then
-  	opcode <= ndc;
   elsif(opcode_bits = "0010" and LSB_IR_bits="10") then
+  	opcode <= ndc;
+  elsif(opcode_bits = "0010" and LSB_IR_bits="01") then
   	opcode <= ndz;
   elsif(opcode_bits = "0001") then
   	opcode <= adi;
@@ -57,16 +57,17 @@ begin
   	opcode <= jal;
   elsif(opcode_bits = "1001") then
   	opcode <= jlr;
+  else
+  	opcode <= add;       -- just to avoid latch
 end if;
 end process opcode_assign;
 
-next_state_logic: process (present_state,reset,opcode) is
+next_state_logic: process (present_state,reset,opcode,ZT,RFA3,cz_bits) is
 begin
   	if(reset = '1') then
     	next_state <= S1;
   	elsif(present_state = S1) then
   		next_state <= S0;
-
   	elsif(present_state = S0) then
 	  	if(opcode=adc or opcode=ndc) then
 	  		if(cz_bits(1)='1') then
@@ -124,20 +125,26 @@ begin
 			next_state<=S15;
 		end if;
 	elsif(present_state = S10) then
-		if(ZT = '0' and opcode=lm) then
-			next_state<=S5;
-		elsif(ZT ='0' and opcode=sm) then
-			next_state<=S13;
-		else
-			next_state<=S15;
+		if(opcode=lm) then
+			if(ZT='1') then
+				next_state<=S15;
+			else
+				next_state<=S5;
+			end if;
+		elsif(opcode=sm) then
+			if(ZT='1') then
+				next_state<=S15;
+			else
+				next_state<=S13;
+			end if;
 		end if;
 	elsif(present_state = S11) then
 		if(RFA3 = '1') then
 			next_state <= S1;
-		elsif(ZT = '1') then
-			next_state <= S15;
 		elsif(ZT = '0') then
 			next_state <= S12;
+		else                         -- (ZT = '0')
+			next_state <= S15;
 		end if;
 	elsif(present_state = S12) then
 		if(opcode = lm) then
@@ -155,7 +162,9 @@ begin
 		end if;
 	elsif(present_state = S15) then
 		next_state <= S1;
-end if;
+	else 
+		next_state <= S1;
+	end if;
 end process next_state_logic;
 
 state_latch: process(next_state, clk) is
@@ -188,53 +197,59 @@ end process;
 next_state_output: process(present_state) is
 begin
 if(present_state = S1) then
-A<='1';B<='0';C<='1';D<='0';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='1';B<='0';C<='1';D<='0';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='1';c_en<='0';z_en<='0';zdash_en<='1';
+
+elsif(present_state = S0) then
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 
 elsif(present_state = S2) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='1';L<='1';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='1';U<='0';
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='1';L<='1';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='1';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
 
 elsif(present_state = S3) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='1';U<='0';
-
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='1';T<='1';U<='0';IR_en<='0';zdash_en<='1';
+	if(opcode=lw or opcode=sw) then
+		c_en<='0';z_en<='0';
+	else
+		c_en<='1';z_en<='1';
+	end if;
 elsif(present_state = S4) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='1';Q<='1';R<='1';T<='0';U<='1';
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='1';Q<='1';R<='1';S<='0';T<='0';U<='1';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 
 elsif(present_state = S5) then
-A<='0';B<='0';C<='0';D<='0';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='1';U<='0';
+A<='0';B<='0';C<='0';D<='0';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='1';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 
 elsif(present_state = S6) then
-A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 
 elsif(present_state = S7) then
-A<='0';B<='1';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='0';B<='1';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
 
 elsif(present_state = S8) then
-A<='1';B<='0';C<='0';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='1';M<='0';N<='0';O<='0';P<='1';Q<='1';R<='0';T<='0';U<='0';
+A<='1';B<='0';C<='0';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='1';M<='0';N<='0';O<='0';P<='1';Q<='1';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
 
 elsif(present_state = S9) then
-A<='1';B<='1';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='1';B<='1';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 
 elsif(present_state = S10) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='1';M<='0';N<='1';O<='1';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='1';M<='0';N<='1';O<='1';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
 
 elsif(present_state = S11) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='1';H<='1';J<='0';K<='0';L<='1';M<='0';N<='0';O<='1';P<='1';Q<='1';R<='1';T<='0';U<='1';
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='1';H<='1';J<='0';K<='0';L<='1';M<='0';N<='0';O<='1';P<='1';Q<='1';R<='1';S<='1';T<='0';U<='1';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
 
 elsif(present_state = S12) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='1';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
 
 elsif(present_state = S13) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='1';H<='1';J<='1';K<='0';L<='1';M<='0';N<='0';O<='1';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='1';H<='1';J<='0';K<='0';L<='1';M<='0';N<='0';O<='1';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
 
 elsif(present_state = S14) then
-A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='0';U<='0';
+A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 
 elsif(present_state = S15) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='1';Q<='0';R<='0';T<='0';U<='0';
+A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='1';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 
-elsif(present_state = S16) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';T<='0';U<='0';
-
+else
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
 end if;
 
 

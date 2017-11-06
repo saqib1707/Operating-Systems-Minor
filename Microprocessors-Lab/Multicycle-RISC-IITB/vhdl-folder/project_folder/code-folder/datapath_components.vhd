@@ -11,7 +11,7 @@ package datapath_components is
   component negative_d_latch is
   	port (d, clk: in std_logic; q : out std_logic);
   end component;
-  component DFF is
+  component dflipflop is
   	port (d, clk: in std_logic; q : out std_logic);
   end component;
   component alu is
@@ -65,7 +65,7 @@ package datapath_components is
 	    d3: in std_logic_vector(15 downto 0);
 	    wr_en: in std_logic;
 	    d1, d2: out std_logic_vector(15 downto 0);
-	    clk: in std_logic
+	    clk,reset: in std_logic
   	);
   end component;
   component asynch_mem is
@@ -86,6 +86,13 @@ package datapath_components is
 	    clk     : in std_logic
 	  );
 	end component;
+  component onedregister is
+    port (
+    din  : in  std_logic;
+    dout : out std_logic;
+    wr_en: in std_logic;
+    clk     : in std_logic);
+  end component;
 end datapath_components;
 
 ------------------------------alu------------------------------
@@ -105,7 +112,7 @@ end entity;
 architecture behave of alu is 
   signal sig1,sig2,sig3,sig4,sig5 : std_logic_vector(15 downto 0);
   signal carry: std_logic;
-  constant zeros: std_logic_vector(15 downto 0) := (others => '0');
+  constant zeros: std_logic_vector(15 downto 0) := "0000000000000000";
 
   component sixteenbitadder is
     port(x,y:in std_logic_vector(15 downto 0); z:out std_logic_vector(15 downto 0); carry_flag: out std_logic);
@@ -129,12 +136,15 @@ architecture behave of alu is
   c: and16       port map(x => X, y => Y, z => sig3);
   d: nand16      port map(x => X, y => Y, z => sig4);
 
-  process(OPC, sig1, sig2, sig3, sig4)
+  process(OPC, sig1, sig2, sig3, sig4) is
     begin
       if (OPC = "1111" or OPC = "0100" or OPC = "0101") then     -- add without changing CF,ZF
         Z <= sig1;
         sig5 <= sig1;
-      elsif (OPC = "0000") or (OPC = "0001") then  -- adz,adc,add,adi
+        CF<='0';
+        ZF <='0';
+
+      elsif ((OPC = "0000") or (OPC = "0001")) then  -- adz,adc,add,adi
         Z <= sig1;
         sig5 <= sig1;
         CF <= carry;
@@ -143,20 +153,33 @@ architecture behave of alu is
         else
           ZF <= '0';
         end if;
+
       elsif (OPC = "0010") then      -- ndz,ndu,ndc
         Z <= sig4;
         sig5 <= sig4;
+        CF <='0';
         if (sig4 = zeros) then
           ZF <= '1';
         else
           ZF <= '0';
         end if;
+
       elsif (OPC = "1100") then
         Z <= sig2;
         sig5 <= sig2;
-      elsif (OPC = "0110" or OPC = "0111") then
+        CF <='0';
+        ZF <='0';
+
+      elsif (OPC = "0110" or OPC = "0111") then   -- and16
         Z <= sig3;
         sig5 <= sig3;
+        ZF <='0';
+        CF <='0';
+      else 
+        Z<=sig1;
+        sig5 <=sig1;
+        CF<='0';
+        ZF <='0';
       end if;
 
       if(sig5 = zeros) then
@@ -443,6 +466,8 @@ begin
             dout <= "111111101";
         elsif (din = "000") then
             dout <= "111111110";
+		    else
+				  dout <= "000000000";
         end if;
     end process;
 end behave;
@@ -509,7 +534,7 @@ entity register_file is
     d3: in std_logic_vector(15 downto 0);
     wr_en: in std_logic;
     d1, d2: out std_logic_vector(15 downto 0);
-    clk: in std_logic
+    clk,reset: in std_logic
   );
 end entity register_file;
 architecture behave of register_file is
@@ -527,20 +552,18 @@ architecture behave of register_file is
 begin
   regFile : process (clk) is
   begin
-    if rising_edge(clk) then
-      -- Read A and B before bypass
-      d1 <= registers(To_Integer(unsigned(a1)));
-      d2 <= registers(To_Integer(unsigned(a2)));
+    if(reset = '1') then
+      for i in 7 downto 0 loop
+        registers(i)<="0000000000000000";
+      end loop;
+    elsif (clk'event and clk = '1') then
       -- Write and bypass
       if wr_en = '1' then
         registers(To_Integer(unsigned(a3))) <= d3;  -- Write
-        if a1 = a3 then  -- Bypass for read A
-          d1 <= d3;
-        end if;
-        if a2 = a3 then  -- Bypass for read B
-          d2 <= d3;
-        end if;
       end if;
+      -- Read A and B before bypass
+      d1 <= registers(To_Integer(unsigned(a1)));
+      d2 <= registers(To_Integer(unsigned(a2)));
     end if;
   end process;
 end behave;
@@ -554,14 +577,15 @@ entity asynch_mem is
    generic (data_width: integer:= 16; addr_width: integer := 16);
    port(din: in std_logic_vector(data_width-1 downto 0);
         dout: out std_logic_vector(data_width-1 downto 0);
-        rdbar: in bit;
-        wrbar: in bit;
+        rdbar: in std_logic;
+        wrbar: in std_logic;
         addrin: in std_logic_vector(addr_width-1 downto 0)
   );
 end entity;
 architecture behave of asynch_mem is
    type MemArray is array(natural range <>) of std_logic_vector(data_width-1 downto 0);
-   signal marray: MemArray(0 to ((2**addr_width)-1));
+   signal marray: MemArray(0 to ((2**(addr_width-13))-1)):=(0=>"0000101010001000",1=>"0000101010001000",2=>"0000101010001000",
+    3=>"0000101010001000",4=>"0000101010001000",5=>"0000101010001000",6=>"0000101010001000",7=>"0000101010001000");
    
    function To_Integer(x: std_logic_vector) return integer is
       variable xu: unsigned(x'range);
@@ -573,8 +597,8 @@ architecture behave of asynch_mem is
    end To_Integer;
 begin
    -- there is only one state..
-   process(rdbar, wrbar)
-      variable addr_var: integer range 0 to (2**addr_width)-1;
+   process(rdbar, wrbar, din, addrin) is
+      variable addr_var: integer range 0 to (2**(addr_width-13))-1;
    begin
       addr_var := To_Integer(addrin);
       if(rdbar = '0') then
@@ -614,32 +638,30 @@ begin
 end process;
 end behave;
 
--------------------program_counter---------------
+-------------------dregister---------------------
 library std;
 use std.standard.all;
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity program_counter is 
-port (din: in std_logic_vector(15 downto 0);
-      dout: out std_logic_vector(15 downto 0);
-      pc_en, clk: in std_logic
-);
-end entity;
+entity onedregister is
+  port (
+    din  : in  std_logic;
+    dout : out std_logic;
+    wr_en: in std_logic;
+    clk     : in std_logic);
+end onedregister;
 
-architecture behave of program_counter is
-  signal pc_reg:std_logic_vector(15 downto 0);
+architecture behave of onedregister is
 begin
-  pc:process (din, pc_en, clk) is
-  begin
-    if rising_edge(clk) then
-      dout <= pc_reg;
-      if pc_en = '1' then
-        pc_reg <= din;
-        dout <= din;
-      end if;
+process(clk)
+begin 
+  if(clk'event and clk = '1') then
+    if wr_en = '1' then
+      dout <= din;
     end if;
-  end process;
+  end if;
+end process;
 end behave;
 
 -------------------------positive_d_latch--------------------------
@@ -671,14 +693,14 @@ begin
    q <= qsig;
 end Equations;
 
----------------------------DFF----------------------------------
+---------------------------dflipflop----------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity DFF is
+entity dflipflop is
   port (d, clk: in std_ulogic; q: out std_ulogic);
-end entity DFF;
-architecture Struct of DFF is
+end entity dflipflop;
+architecture Struct of dflipflop is
    signal U: std_logic;
 	component positive_d_latch is
 		 port (d, clk: in std_ulogic; q: out std_ulogic);
