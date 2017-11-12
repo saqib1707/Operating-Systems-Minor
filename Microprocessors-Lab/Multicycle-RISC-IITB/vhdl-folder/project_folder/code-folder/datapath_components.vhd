@@ -52,7 +52,7 @@ package datapath_components is
 	      dout: out std_logic_vector(nbits-1 downto 0)
 	  );
   end component;
-  component MUX41 is
+  component MUX4X1 is
     generic (nbits:integer:=16);
 	  port (d1, d2, d3, d4: in std_logic_vector(nbits-1 downto 0);
 	      s1, s0: in std_logic;
@@ -136,7 +136,7 @@ architecture behave of alu is
   c: and16       port map(x => X, y => Y, z => sig3);
   d: nand16      port map(x => X, y => Y, z => sig4);
 
-  process(OPC, sig1, sig2, sig3, sig4) is
+  process(OPC, sig1, sig2, sig3, sig4, carry) is
     begin
       if (OPC = "1111" or OPC = "0100" or OPC = "0101") then     -- add without changing CF,ZF
         Z <= sig1;
@@ -182,12 +182,14 @@ architecture behave of alu is
         ZF <='0';
       end if;
 
-      if(sig5 = zeros) then
-        ZERO_TEMP <= '1';
-      else
-        ZERO_TEMP <= '0';
-      end if;
+      --if(sig5 = zeros) then
+      --  ZERO_TEMP <= '1';
+      --else
+      --  ZERO_TEMP <= '0';
+      --end if;
   end process;
+  ZERO_TEMP<= not (sig5(15) or sig5(14) or sig5(13) or sig5(12) or sig5(11) or sig5(10) or sig5(9) or sig5(8) or sig5(7) or sig5(6)
+             or sig5(5) or sig5(4) or sig5(3) or sig5(2) or sig5(1) or sig5(0));
 end behave;
 
 -------------------nand16----------------------
@@ -495,19 +497,19 @@ begin
   end process;
 end behave;
 
------------------------ MUX41--------------------------
+----------------------- MUX4X1--------------------------
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity MUX41 is
+entity MUX4X1 is
 	generic (nbits:integer:=16);
   port (d1, d2, d3, d4: in std_logic_vector(nbits-1 downto 0);
       s1, s0: in std_logic;
       dout: out std_logic_vector(nbits-1 downto 0));
-end entity MUX41;
-architecture behave of MUX41 is
+end entity MUX4X1;
+architecture behave of MUX4X1 is
 begin
-  logic_mux41:process(d1, d2, d3, d4, s1, s0) is
+  logic_MUX4X1:process(d1, d2, d3, d4, s1, s0) is
   begin
     if(s1 = '0' and s0='0') then
       dout <= d1;
@@ -550,7 +552,7 @@ architecture behave of register_file is
    end to_integer;
 	
 begin
-  regFile : process (clk) is
+  regFile : process (clk,reset,wr_en,d3,a1,a2,a3) is
   begin
     if(reset = '1') then
       for i in 7 downto 0 loop
@@ -584,9 +586,9 @@ entity asynch_mem is
 end entity;
 architecture behave of asynch_mem is
    type MemArray is array(natural range <>) of std_logic_vector(data_width-1 downto 0);
-   signal marray: MemArray(0 to ((2**(addr_width-13))-1)):=(0=>"0000101010001000",1=>"0000101010001000",2=>"0000101010001000",
-    3=>"0000101010001000",4=>"0000101010001000",5=>"0000101010001000",6=>"0000101010001000",7=>"0000101010001000");
-   
+   signal marray: MemArray(0 to ((2**(addr_width))-1)):=(0=>"0001000110111000",1=>"0001001110000110",2=>"0001011010000111",
+    3=>"0111011000000011",4=>"0101100010000111",5=>"0000000001010000",6=>"0000011100001000",7=>"0000000000000001",8=>"0000000000000010",others=>"0000000000000000");
+
    function To_Integer(x: std_logic_vector) return integer is
       variable xu: unsigned(x'range);
    begin
@@ -598,7 +600,7 @@ architecture behave of asynch_mem is
 begin
    -- there is only one state..
    process(rdbar, wrbar, din, addrin) is
-      variable addr_var: integer range 0 to (2**(addr_width-13))-1;
+      variable addr_var: integer range 0 to (2**(addr_width))-1;
    begin
       addr_var := To_Integer(addrin);
       if(rdbar = '0') then
@@ -628,7 +630,7 @@ end dregister;
 
 architecture behave of dregister is
 begin
-process(clk)
+process(clk,din,wr_en)
 begin 
   if(clk'event and clk = '1') then
     if wr_en = '1' then
@@ -638,7 +640,7 @@ begin
 end process;
 end behave;
 
--------------------dregister---------------------
+-------------------onedregister---------------------
 library std;
 use std.standard.all;
 library ieee;
@@ -654,7 +656,7 @@ end onedregister;
 
 architecture behave of onedregister is
 begin
-process(clk)
+process(clk,din,wr_en)
 begin 
   if(clk'event and clk = '1') then
     if wr_en = '1' then

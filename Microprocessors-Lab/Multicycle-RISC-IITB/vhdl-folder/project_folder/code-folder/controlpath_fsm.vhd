@@ -11,16 +11,17 @@ entity control_path is
 	port (
       clk,reset:in std_logic;
       opcode_bits:in std_logic_vector(3 downto 0);
-	  RFA3,ZT: in std_logic;
+      T4_output:in std_logic_vector(15 downto 0);
+	  RFA3,z_dash: in std_logic;
 	  cz_bits,LSB_IR_bits:in std_logic_vector(1 downto 0);
-      A,B,C,D,E,F,G,H,J,K,L,M,N,O,P,Q,R,S,T,U,IR_en,c_en,z_en,zdash_en:out std_logic
+      A,B,C,D,E,F,G,H,J,K,L,M,N,O,P,Q,R,S,T,U,IR_en,c_en,z_en,t1_en:out std_logic
 	);
 end entity;
 
 architecture behave of control_path is
 
 type MyState is (S1, S0, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15);
-type opcode_store is (ADD, ADZ, ADC, ADI, NDU, NDC, NDZ, LHI, LW, SW, LM, SM, BEQ, JAL, JLR);
+type opcode_store is (add, adz, adc, adi, ndu, ndc, ndz, lhi, lw, sw, lm, sm, beq, jal, jlr);
 signal present_state, next_state : MyState;
 signal opcode : opcode_store;
 
@@ -62,7 +63,7 @@ begin
 end if;
 end process opcode_assign;
 
-next_state_logic: process (present_state,reset,opcode,ZT,RFA3,cz_bits) is
+next_state_logic: process (present_state,reset,opcode,T4_output,RFA3,cz_bits,z_dash) is
 begin
   	if(reset = '1') then
     	next_state <= S1;
@@ -110,14 +111,14 @@ begin
 		else
 			next_state <= S15;
 		end if;
-	elsif(present_state=S6 or present_state=S7 or present_state=S9) then
-		next_state<=S15;
 	elsif(present_state = S5) then
 		if(opcode=lm) then
 			next_state<= S11;
 		else
 			next_state<= S4;
 		end if;
+	elsif(present_state=S6 or present_state=S7 or present_state=S9) then
+		next_state<=S15;
 	elsif(present_state=S8) then
 		if(opcode = jlr) then
 			next_state<=S9;
@@ -126,13 +127,13 @@ begin
 		end if;
 	elsif(present_state = S10) then
 		if(opcode=lm) then
-			if(ZT='1') then
+			if(z_dash='1') then
 				next_state<=S15;
 			else
 				next_state<=S5;
 			end if;
 		elsif(opcode=sm) then
-			if(ZT='1') then
+			if(z_dash='1') then
 				next_state<=S15;
 			else
 				next_state<=S13;
@@ -141,9 +142,9 @@ begin
 	elsif(present_state = S11) then
 		if(RFA3 = '1') then
 			next_state <= S1;
-		elsif(ZT = '0') then
+		elsif(z_dash = '0') then
 			next_state <= S12;
-		else                         -- (ZT = '0')
+		else                     
 			next_state <= S15;
 		end if;
 	elsif(present_state = S12) then
@@ -155,10 +156,10 @@ begin
 	elsif(present_state = S13) then
 		next_state <= S14;
 	elsif(present_state = S14) then
-		if(ZT = '0') then
-			next_state<=S12;
-		else
+		if(T4_output = "0000000000000000") then
 			next_state<=S15;
+		else
+			next_state<=S12;
 		end if;
 	elsif(present_state = S15) then
 		next_state <= S1;
@@ -171,6 +172,8 @@ state_latch: process(next_state, clk) is
 begin
 	if rising_edge(clk) then
 		present_state <= next_state;
+	else
+		present_state <= present_state;
 	end if;
 end process;
 
@@ -194,62 +197,79 @@ end process;
 --T <= S2+S3+S5;
 --U <= S4+S11;
 
-next_state_output: process(present_state) is
+next_state_output: process(present_state,opcode) is
 begin
 if(present_state = S1) then
-A<='1';B<='0';C<='1';D<='0';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='1';c_en<='0';z_en<='0';zdash_en<='1';
+A<='1';B<='0';C<='1';D<='0';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='1';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S0) then
-A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S2) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='1';L<='1';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='1';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='1';L<='1';M<='1';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='1';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='1';
 
 elsif(present_state = S3) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='1';T<='1';U<='0';IR_en<='0';zdash_en<='1';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';t1_en<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='1';T<='1';U<='0';IR_en<='0';
 	if(opcode=lw or opcode=sw) then
 		c_en<='0';z_en<='0';
 	else
 		c_en<='1';z_en<='1';
 	end if;
 elsif(present_state = S4) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='1';Q<='1';R<='1';S<='0';T<='0';U<='1';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='1';Q<='1';R<='1';S<='0';T<='0';U<='1';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S5) then
-A<='0';B<='0';C<='0';D<='0';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='1';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='0';B<='0';C<='0';D<='0';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='1';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S6) then
-A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S7) then
-A<='0';B<='1';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
+A<='0';B<='1';C<='1';D<='1';E<='1';F<='1';G<='0';H<='0';J<='0';K<='1';L<='0';M<='1';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S8) then
-A<='1';B<='0';C<='0';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='1';M<='0';N<='0';O<='0';P<='1';Q<='1';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
+A<='1';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='1';M<='0';N<='0';
+O<='0';P<='1';Q<='1';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='1';
 
 elsif(present_state = S9) then
-A<='1';B<='1';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='1';B<='1';C<='1';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S10) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='1';M<='0';N<='1';O<='1';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='1';M<='0';N<='1';
+O<='1';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='1';
 
 elsif(present_state = S11) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='1';H<='1';J<='0';K<='0';L<='1';M<='0';N<='0';O<='1';P<='1';Q<='1';R<='1';S<='1';T<='0';U<='1';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='0';G<='1';H<='1';J<='0';K<='0';L<='1';M<='0';N<='0';
+O<='1';P<='1';Q<='1';R<='1';S<='1';T<='0';U<='1';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S12) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='1';G<='0';H<='0';J<='1';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='0';H<='0';J<='1';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='1';
 
 elsif(present_state = S13) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='1';H<='1';J<='0';K<='0';L<='1';M<='0';N<='0';O<='1';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='1';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='0';G<='1';H<='1';J<='0';K<='0';L<='1';M<='0';N<='0';
+O<='1';P<='0';Q<='0';R<='0';S<='1';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S14) then
-A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='0';B<='0';C<='0';D<='1';E<='0';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 elsif(present_state = S15) then
-A<='0';B<='0';C<='0';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='1';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='0';G<='0';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='1';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 
 else
-A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';zdash_en<='0';
+A<='0';B<='0';C<='1';D<='1';E<='1';F<='1';G<='1';H<='0';J<='0';K<='0';L<='0';M<='0';N<='0';
+O<='0';P<='0';Q<='0';R<='0';S<='0';T<='0';U<='0';IR_en<='0';c_en<='0';z_en<='0';t1_en<='0';
 end if;
 
 
