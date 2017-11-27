@@ -15,6 +15,7 @@ entity datapath_fsm is
     cz_bits, LSB_IR_bits: out std_logic_vector(1 downto 0);
     T4_output: out std_logic_vector(15 downto 0);
     opcode:out std_logic_vector(3 downto 0)
+	 --ALU_OUTPUT:out std_logic_vector(15 downto 0)
 	);
 end entity;
 
@@ -23,7 +24,7 @@ architecture behave of datapath_fsm is
 signal pc_in,pc_out,mux_U,rf_d1,rf_d2,rf_d3,mem_data_out,mem_addr,alu1_in,alu2_in,mux2_out:std_logic_vector(15 downto 0);
 signal t1_in,t1_out,t2_in,t2_out,t3_in,t3_out,IR_out,mux_t4_in1,t4_in,t4_out,d1_out,d2_out:std_logic_vector(15 downto 0);
 signal mux_alu2_11,mux_alu2_10,mux_alu2_01,shift7_in,shift7_out,alu_out: std_logic_vector(15 downto 0);
-signal pc_en,alpha,gamma,JLR,BEQ,LHI,LW_SW,LM_SM,BEQ_SW,SM,LM,LW_SW_ADI,zd: std_logic;
+signal pc_en,alpha,gamma,JLR,BEQ,LHI,LW_SW,LM_SM,BEQ_SW,SM,LM,LW_SW_ADI,zd,badass: std_logic;
 signal rf_a1,rf_a2,rf_a3,PE_out: std_logic_vector(2 downto 0);
 signal alu_opc:std_logic_vector(3 downto 0);
 signal temp_cz:std_logic_vector(1 downto 0);
@@ -64,14 +65,17 @@ begin
   T4: dregister port map(din=>t4_in, dout=>t4_out, wr_en=>O, clk=>clk);
   -- asynch mem
   mux_mem: MUX4X1 port map(d1=>t1_out, d2=>pc_out, d3=>t3_out, d4=>pc_out, s1=>LW_SW, s0=>C, dout=>mem_addr);
-  mem: asynch_mem port map(din=>t2_out, dout=>mem_data_out, rdbar=>D, wrbar=>E, addrin=>mem_addr);
+  mem: asynch_mem port map(din=>t2_out, dout=>mem_data_out, rdbar=>D, wrbar=>E, addrin=>mem_addr, reset=>reset);
   -- PC section
   gamma <= (B and (zd or JLR));
   mux1: MUX21 port map(d1=>alu_out, d2=>rf_d3, s=>U, dout=>mux_U);
   mux2: MUX4X1 port map(d1=>mux_U, d2=>t3_out, d3=>mux_U, d4=>t1_out, s1=>JLR, s0=>gamma, dout=>mux2_out);
   mux3: MUX21 port map(d1=>mux2_out,d2=>"0000000000000000",s=>reset,dout=>pc_in);
 	alpha <= (rf_a3(0) and rf_a3(1) and rf_a3(2));
-  pc_en <= ((zd and BEQ) or A) or (U and alpha);
+	
+	badass <= ((A and (not JLR)) or ((B or (not D)) and JLR));
+  
+  pc_en <= ((((zd and BEQ) and S) or badass) or (U and alpha)) or reset;
   PC : dregister port map(din=>pc_in,dout=>pc_out,wr_en=>pc_en,clk=>clk);
 
   PE : priority_encoder port map(din=>t4_out(7 downto 0),dout=>PE_out);                
@@ -94,6 +98,8 @@ begin
   RFA3 <= alpha;
   opcode <= IR_out(15 downto 12);
   LSB_IR_bits <= IR_out(1 downto 0);
+  --ALU_OUTPUT<= alu_out;
+  
   process(S,IR_out) is
   begin
     if(S = '0') then

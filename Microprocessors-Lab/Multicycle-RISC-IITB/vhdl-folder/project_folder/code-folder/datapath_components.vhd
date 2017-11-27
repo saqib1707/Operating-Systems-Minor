@@ -72,8 +72,9 @@ package datapath_components is
   	generic (data_width: integer:= 16; addr_width: integer := 16);
 	  port(din: in std_logic_vector(data_width-1 downto 0);
 	        dout: out std_logic_vector(data_width-1 downto 0);
-	        rdbar: in std_logic ;
+	        rdbar: in std_logic;
 	        wrbar: in std_logic;
+			  reset: in std_logic;
 	        addrin: in std_logic_vector(addr_width-1 downto 0)
 	  );
 	end component;
@@ -581,13 +582,13 @@ entity asynch_mem is
         dout: out std_logic_vector(data_width-1 downto 0);
         rdbar: in std_logic;
         wrbar: in std_logic;
+		  reset :in std_logic;
         addrin: in std_logic_vector(addr_width-1 downto 0)
   );
 end entity;
 architecture behave of asynch_mem is
    type MemArray is array(natural range <>) of std_logic_vector(data_width-1 downto 0);
-   signal marray: MemArray(0 to ((2**(addr_width))-1)):=(0=>"0001000110111000",1=>"0001001110000110",2=>"0001011010000111",
-    3=>"0111011000000011",4=>"0101100010000111",5=>"0000000001010000",6=>"0000011100001000",7=>"0000000000000001",8=>"0000000000000010",others=>"0000000000000000");
+   signal marray: MemArray(0 to ((2**(addr_width-12))-1));--:=(0=>"0001100000000100",1=>"0001011000000101",2=>"0001010000000011",others=>"0000000000000000");
 
    function To_Integer(x: std_logic_vector) return integer is
       variable xu: unsigned(x'range);
@@ -599,15 +600,18 @@ architecture behave of asynch_mem is
    end To_Integer;
 begin
    -- there is only one state..
-   process(rdbar, wrbar, din, addrin) is
-      variable addr_var: integer range 0 to (2**(addr_width))-1;
+   process(rdbar, wrbar, din, addrin,reset) is
+      variable addr_var: integer range 0 to ((2**(addr_width-12))-1);
    begin
-      addr_var := To_Integer(addrin);
+		if (reset = '1') then
+			marray<= (0=>"0001100000000011",1=>"0001011000000101",2=>"0001010000000011",3=>"0000101101011000",4=>"0001001001000001",5=>"1100010001000111",6=>"1001110100000000",7=>"0101101000000000",others=>"0000000000000000");
+		end if;
+      --addr_var := To_Integer(addrin);
       if(rdbar = '0') then
-        dout <= marray(addr_var);
+        dout <= marray(To_Integer(addrin));
       end if;
       if(wrbar = '0') then
-        marray(addr_var) <= din;
+        marray(To_Integer(addrin)) <= din;
       end if;     
    end process;
 end behave;
