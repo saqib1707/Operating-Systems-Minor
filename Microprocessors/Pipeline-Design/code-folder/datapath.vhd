@@ -493,8 +493,8 @@ begin
   mux5:  MUX4X1 port map(d1=>PR2_PC_out, d2=>adder2_out, d3=>mux14_out, d4=>mux14_out, s1=>mux5_sel1, s0=>mux5_sel0, dout=>mux5_out);
 
   -- PR3 registers
-  PR3_d1_addr: dregister generic map(nbits=>3) port map(din=>mux17_out, dout=>PR3_opr1_out, wr_en=>PR3_en, clk=>clk);
-  PR3_d2_addr: dregister generic map(nbits=>3) port map(din=>mux2_out, dout=>PR3_opr2_out, wr_en=>PR3_en, clk=>clk);
+  PR3_d1_addr: dregister generic map(nbits=>3) port map(din=>mux17_out, dout=>PR3_d1_addr_out, wr_en=>PR3_en, clk=>clk);
+  PR3_d2_addr: dregister generic map(nbits=>3) port map(din=>mux2_out, dout=>PR3_d2_addr_out, wr_en=>PR3_en, clk=>clk);
   PR3_PC: dregister port map(din=>PR2_PC_out, dout=>PR3_PC_out, wr_en=>PR3_en, clk=>clk);
   PR3_d1_value : dregsiter port map(din=>mux3_out, dout=>PR3_d1_out, wr_en=>PR3_en, clk=>clk);
   PR3_d2_value : dregsiter port map(din=>mux14_out, dout=>PR3_d2_out, wr_en=>PR3_en, clk=>clk);
