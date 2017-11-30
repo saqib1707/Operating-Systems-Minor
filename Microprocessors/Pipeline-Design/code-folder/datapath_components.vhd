@@ -18,10 +18,11 @@ package datapath_components is
     port(X,Y : in std_logic_vector(15 downto 0);
         OPC : in std_logic_vector(3 downto 0);
         Z : out std_logic_vector(15 downto 0);
-        CF, ZF, ZERO_TEMP: out std_logic
+        --ZERO_TEMP: out std_logic;
+        CF, ZF: out std_logic
     );
   end component;
-  component leftshift_7 is
+  component leftshift is
     port (din: in std_logic_vector(15 downto 0);
       dout:out std_logic_vector(15 downto 0)
     );
@@ -74,7 +75,7 @@ package datapath_components is
 	        dout: out std_logic_vector(data_width-1 downto 0);
 	        rdbar: in std_logic;
 	        wrbar: in std_logic;
-			  reset: in std_logic;
+			    reset: in std_logic;
 	        addrin: in std_logic_vector(addr_width-1 downto 0)
 	  );
 	end component;
@@ -94,6 +95,28 @@ package datapath_components is
     wr_en: in std_logic;
     clk     : in std_logic);
   end component;
+  component xor16 is
+    generic (nbits:integer:=16);
+    port (x, y: in std_logic_vector(nbits-1 downto 0);
+          z:out std_logic);
+  end component;
+  component sixteenbitadder is
+    port (x,y: in std_logic_vector(15 downto 0);
+          z:out std_logic_vector(15 downto 0);
+          carry_flag: out std_logic
+    );
+  end component;
+  component sixteenbitsubtractor is
+    port (x,y: in std_logic_vector(15 downto 0);
+          z:out std_logic_vector(15 downto 0)
+    );
+  end component;
+  component and16 is
+    generic (nbits: integer:= 16);
+    port (x, y: in std_logic_vector(nbits-1 downto 0);
+          z:out std_logic_vector(nbits-1 downto 0)
+    );
+  end component;
 end datapath_components;
 
 ------------------------------alu------------------------------
@@ -106,7 +129,8 @@ entity alu is
   port(X,Y : in std_logic_vector(15 downto 0);
         OPC : in std_logic_vector(3 downto 0);
         Z : out std_logic_vector(15 downto 0);
-        CF,ZF,ZERO_TEMP: out std_logic
+        --ZERO_TEMP:out std_logic;
+        CF,ZF: out std_logic
   );
 end entity;
 
@@ -137,25 +161,25 @@ architecture behave of alu is
   c: and16       port map(x => X, y => Y, z => sig3);
   d: nand16      port map(x => X, y => Y, z => sig4);
 
-  process(OPC, sig1, sig2, sig3, sig4, carry) is
+  process(OPC, sig1, sig4, carry) is
     begin
-      if (OPC = "1111" or OPC = "0100" or OPC = "0101") then     -- add without changing CF,ZF
-        Z <= sig1;
-        sig5 <= sig1;
-        CF<='0';
-        ZF <='0';
+      --if (OPC = "1111" or OPC = "0100" or OPC = "0101") then     -- add without changing CF,ZF
+      --  Z <= sig1;
+      --  sig5 <= sig1;
+      --  CF<='0';
+      --  ZF <='0';
 
-      elsif ((OPC = "0000") or (OPC = "0001")) then  -- adz,adc,add,adi
-        Z <= sig1;
-        sig5 <= sig1;
-        CF <= carry;
-        if(sig1 = zeros) then
-          ZF <= '1';
-        else
-          ZF <= '0';
-        end if;
+      --elsif ((OPC = "0000") or (OPC = "0001")) then  -- adz,adc,add,adi
+      --  Z <= sig1;
+      --  sig5 <= sig1;
+      --  CF <= carry;
+      --  if(sig1 = zeros) then
+      --    ZF <= '1';
+      --  else
+      --    ZF <= '0';
+      --  end if;
 
-      elsif (OPC = "0010") then      -- ndz,ndu,ndc
+      if (OPC = "0010") then      -- ndz,ndu,ndc
         Z <= sig4;
         sig5 <= sig4;
         CF <='0';
@@ -165,32 +189,56 @@ architecture behave of alu is
           ZF <= '0';
         end if;
 
-      elsif (OPC = "1100") then
-        Z <= sig2;
-        sig5 <= sig2;
-        CF <='0';
-        ZF <='0';
+      --elsif (OPC = "1100") then       -- not required for pipeline
+      --  Z <= sig2;
+      --  sig5 <= sig2;
+      --  CF <='0';
+      --  ZF <='0';
 
-      elsif (OPC = "0110" or OPC = "0111") then   -- and16
-        Z <= sig3;
-        sig5 <= sig3;
-        ZF <='0';
-        CF <='0';
+      --elsif (OPC = "0110" or OPC = "0111") then   -- and16
+      --  Z <= sig3;
+      --  sig5 <= sig3;
+      --  ZF <='0';
+      --  CF <='0';
       else 
-        Z<=sig1;
-        sig5 <=sig1;
-        CF<='0';
-        ZF <='0';
+        Z <= sig1;
+        sig5 <= sig1;
+        CF <= carry;
+        if(sig1 = zeros) then
+          ZF <= '1';
+        else
+          ZF <= '0';
+        end if;
       end if;
 
-      --if(sig5 = zeros) then
-      --  ZERO_TEMP <= '1';
-      --else
-      --  ZERO_TEMP <= '0';
-      --end if;
   end process;
-  ZERO_TEMP<= not (sig5(15) or sig5(14) or sig5(13) or sig5(12) or sig5(11) or sig5(10) or sig5(9) or sig5(8) or sig5(7) or sig5(6)
-             or sig5(5) or sig5(4) or sig5(3) or sig5(2) or sig5(1) or sig5(0));
+  --ZERO_TEMP<= not (sig5(15) or sig5(14) or sig5(13) or sig5(12) or sig5(11) or sig5(10) or sig5(9) or sig5(8) or sig5(7) or sig5(6)
+  --           or sig5(5) or sig5(4) or sig5(3) or sig5(2) or sig5(1) or sig5(0));
+end behave;
+
+
+--------------------xor16---------------------
+library std;
+use std.standard.all;
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity xor16 is
+generic (nbits:integer:=16);
+port (x, y: in std_logic_vector(nbits-1 downto 0);
+      z:out std_logic;
+end entity;
+
+architecture behave of nand16 is
+  signal s:std_logic_vector(nbits-1 downto 0);
+begin
+  compute_xor: process(x, y) is
+  begin
+    for i in nbits-1 downto 0 loop
+      s(i) <= (x(i) xor y(i));
+    end loop;
+    z <= not (s(15) or s(14) or s(13) or s(12) or s(11) or s(10) or s(9) or s(8) or s(7) or s(6) or s(5) or s(4) or s(3) or s(2) or s(1) or s(0));
+  end process;
 end behave;
 
 -------------------nand16----------------------
@@ -299,8 +347,6 @@ use std.standard.all;
 library ieee;
 use ieee.std_logic_1164.all;
 
-
-
 entity sixteenbitsubtractor is 
 port (x,y: in std_logic_vector(15 downto 0);
       z:out std_logic_vector(15 downto 0)
@@ -350,22 +396,21 @@ begin
   bout <= ((not x) and y) or ((not (x xor y)) and bin);
 end behave;
 
----------------------------------leftshift_7--------------------------
+---------------------------------leftshift--------------------------
 library std;
 use std.standard.all;
 library ieee;
 use ieee.std_logic_1164.all;
 
-
-entity leftshift_7 is
+entity leftshift is
 port 
   (din: in std_logic_vector(15 downto 0);
     dout:out std_logic_vector(15 downto 0)
   );
 end entity;
-architecture behave of leftshift_7 is
+architecture behave of leftshift is
 begin
-  ls_7:process(din) is
+  ls:process(din) is
   begin
     for i in 15 downto 7 loop
       dout(i) <= din(i-7);
@@ -381,7 +426,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 entity sgn is
-	generic (nbits:integer:=9);
+	generic (nbits:integer:=9;flag:integer:=0);   -- flag = 0 => bit extend with zeros and flag = 1 => bit extend with ones
   port (
   	din : in STD_LOGIC_VECTOR(nbits-1 downto 0);
     dout : out STD_LOGIC_VECTOR(15 downto 0)
@@ -394,9 +439,15 @@ begin
     for i in (nbits-1) downto 0 loop
       dout(i) <= din(i);
     end loop;
-    for j in 15 downto nbits loop
-      dout(j) <= '0';
-    end loop;
+    if flag = '0' then
+      for j in 15 downto nbits loop
+        dout(j) <= '0';
+      end loop;
+    else
+      for j in 15 downto nbits loop
+        dout(j) <= '1';
+      end loop;
+    end if;
   end process;
 end behave;
 
@@ -432,7 +483,7 @@ begin
         elsif (din(7)='1') then
             dout <= "111";
         else
-          dout <= "000";
+            dout <= "000";
         end if;
     end process;
 end behave;
@@ -469,7 +520,7 @@ begin
         elsif (din = "000") then
             dout <= "111111110";
 		    else
-				  dout <= "000000000";
+				    dout <= "000000000";
         end if;
     end process;
 end behave;
@@ -614,7 +665,7 @@ architecture behave of asynch_mem is
 begin
    -- there is only one state..
    process(rdbar, wrbar, din, addrin,reset) is
-      variable addr_var: integer range 0 to ((2**(addr_width-12))-1);
+      --variable addr_var: integer range 0 to ((2**(addr_width-12))-1);
    begin
 		if (reset = '1') then
 			marray<= (0=>"0001100000000011",1=>"0001011000000101",2=>"0001010000000011",3=>"0000101101011000",4=>"0001001001000001",5=>"1100010001000111",6=>"1001110100000000",7=>"0101101000000000",others=>"0000000000000000");
