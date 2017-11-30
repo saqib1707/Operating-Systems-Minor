@@ -154,7 +154,8 @@ begin
       else
         mux5_sel0<=xor_out;
       end if;
-  end process; 
+  end process;
+
   process(PR5_opc,last2bits,PR5_wr_en) is
   begin
     if (PR5_opc = adi or PR5_opc = lhi or PR5_opc = lw or PR5_opc = lm or PR5_opc = jal or PR5_opc = jlr) then
@@ -171,13 +172,18 @@ begin
       P <= '0';
     end if;
   end process;
+
   r7_en <= (P or PC_en);
   regfile: register_file port map(a1=>mux17_out,a2=>mux2_out, a3=>PR5_wb_addr_out, a4=>"111", d3=>PR5_res_out, wr_en=>P, wr_en7=>r7_en, d1=>d1_out, d2=>d2_out, clk=>clk,reset=>reset);
   mux4: MUX21 generic map(nbits=>3) port map(d1=>PR2_IR_out(11 downto 9), d2=>PE_out, s=>mux4_sel, dout=>mux4_out);
 
-  -- for the mux3_sel and mux14_sel , process has to be written from copy
+  -- forward logic at stage 3
   mux3: MUX21 port map(d1=>d1_out, d2=>mux8_out, s=>mux3_sel, dout=>mux3_out);
   mux14: MUX21 port map(d1=>d2_out, d2=>mux8_out, s=>mux14_sel, dout=>mux14_out);
+  mux21: MUX21 port map(d1=>mux3_out, d2=>PR4_res_out, s=>mux21_sel, dout=>mux21_out);
+  mux22: MUX21 port map(d1=>mux14_out, d2=>PR4_res_out, s=>mux22_sel, dout=>mux22_out);
+  mux23: MUX21 port map(d1=>mux21_out, d2=>PR5_res_out, s=>mux23_sel, dout=>mux23_out);
+  mux24: MUX21 port map(d1=>mux22_out, d2=>PR5_res_out, s=>mux24_sel, dout=>mux24_out);
 
   
   forward: process(PR2_IR_out,PR3_opc_out,PR4_opc_out,PR5_opc_out,PR3_wb_addr_out,PR4_wb_addr_out,PR5_wb_addr_out,
@@ -526,25 +532,114 @@ begin
     else
       mux7_sel0<='0';
       mux7_sel1<='0';
-    end if;        
+    end if;
+
+    if(PR3_opc_out=lhi) then
+      mux8_sel1<='1';
+    else
+      mux8_sel1<='0';
+    end if;
+
+    if(PR3_opc_out=jal or PR3_opc_out=jlr) then
+      mux8_sel0<='1';
+    else
+      mux8_sel0<='0';
+    end if; 
   end process;
 
+  -- mux16 and mux17 and mux6 and mux7 to check
+  mux16:MUX21 port map(d1=>PR3_d1_out, d2=>PR5_res_out, s=>mux16_sel, dout=>mux16_out);
+  mux20:MUX21 port map(d1=>PR3_d2_out, d2=>PR5_res_out, s=>mux20_sel, dout=>mux20_out);
   mux6: MUX21 port map(d1=>mux16_out, d2=>PR3_rb_out, s=>mux6_sel, dout=>mux6_out);
-  mux16:MUX21 port map(d1=>PR3_ra_out, d2=>PR5_res_out, s=>mux16_sel, dout=>mux16_out);  -- mux16 select has ti be done later
-  mux20:MUX21 port map(d1=>PR3_rb_out, d2=>PR5_res_out, s=>mux20_sel, dout=>mux20_out);
   mux7: MUX4X1 port map(d1=>mux20_out, d2=>ones, d3=>PR3_imm_out, d4=>zeros, s1=>mux7_sel1, s0=>mux7_sel0, dout=>mux7_out);
+
+  ---------------PR5 to Alu_input forwarding and stalling logic for lw and for lm------------
+process(PR3_d1_addr_out, PR3_d2_addr_out, PR4_wb_addr_out, PR5_wb_addr_out, PR3_opc_out, PR4_opc_out, PR5_opc_out) is
+begin
+if(PR3_opc_out = add or PR3_opc_out = adc or PR3_opc_out = adz or PR3_opc_out = ndu or PR3_opc_out = ndc or PR3_opc_out = ndz, PR3_opc_out = sw or PR3_opc_out = beq or PR3_opc_out = sm) then
+  if((PR4_opc_out = lw or PR4_opc_out = lm) and (PR4_wb_addr_out = PR3_d1_addr_out or PR4_wb_addr_out = PR3_d2_addr_out)) then 
+     introduce stalling:
+    if(PR4_wb_addr_out = PR3_d1_addr_out) then
+       mux16_sel <='1';
+    end if;
+    if(PR4_wb_addr_out = PR3_d2_addr_out) then 
+      mux20_sel <='1';
+    end if;
+  elsif(PR5_opc_out = lw or PR5_opc_out = lm) then
+    if(PR5_wb_addr_out = PR3_d1_addr_out) then
+      mux16_sel <='1';
+    end if;
+    if(PR5_wb_addr_out = PR3_d2_addr_out) then
+      mux20_sel <='1';
+    end if;
+  else
+    mux16_sel <='0';
+    mux20_sel <='0';
+  end if;
+elsif(PR3_opc_out = adi or PR3_opc_out = lw or PR3_opc_out = jlr or PR3_opc_out = lm) then
+  if(PR4_opc_out = lw or PR4_opc_out = lm) and (PR4_wb_addr_out = PR3_d1_addr_out)) then
+    introduce stalling:
+    mux16_sel <='1';
+  elsif(PR5_opc_out = lw or PR5_opc_out = lm) and (PR5_wb_addr_out = PR3_d1_addr_out)) then
+    mux16_sel<='1';
+  else 
+    mux16_sel<='0';
+    mux20_sel<='0';
+  end if;
+else 
+  mux16_sel <='0';
+  mux20_sel <='0';  
+end if;  
+end process
+---------------------------------------------------end----------------------------
+
   alu_inside:alu port map(X=>mux6_out, Y=>mux7_out, Z=>alu_out, OPC=>PR3_opc_out, CF=>PR4_cin, ZF=>PR4_zin);
-  mux8: MUX4X1 port map(d1=>alu_out, d2=>PR3_PC_out, d3=>PR3_imm_out, d4=>zeros, s1=>PR3_LHI, s0=>gamma, dout=>mux8_out); 
+  mux8: MUX4X1 port map(d1=>alu_out, d2=>PR3_PC_out, d3=>PR3_imm_out, d4=>zeros, s1=>mux8_sel1, s0=>mux8_sel0, dout=>mux8_out); 
+
+  mux13: MUX21 port map(d1=>'0', d2=>'1', s=>mux13_sel, dout=>mux13_out);
+
+  process() is
+    begin
+      opc3<=PR3_opc_out;
+      opc4<=PR4_opc_out;
+      opc5<=PR5_opc_out;
+
+      if(opc3=add or opc3=ndu or opc3=adi) then
+        mux13_sel<='1';
+      elsif(opc3=adc or opc3=ndc) then
+        if((opc4=add or opc4=adc or opc4=adi or opc4=adz) and PR4_truth_out='1') then
+          if(PR4_cout='1') then
+            mux13_sel<='1';
+          else
+            mux13_sel<='0';
+          end if;
+        elsif((opc5=add or opc5=adc or opc5=adi or opc5=adz) and PR5_truth_out='1') then
+          if(PR5_cout='1') then
+            mux13_sel<='1';
+          else
+            mux13_sel<='0';
+          end if;
+        else
+          if(CF='1') then
+            mux13_sel<='1';
+          else
+            mux13_sel<='0';
+          end if;
+        end if;
+
+
+      end if;
+  end process;
 
   -- PR4 registers 
-  PR4_ra : dregsiter port map(din=>PR3_ra_out, dout=>PR4_ra_out, wr_en=>PR4_en, clk=>clk);
-  PR4_rb : dregsiter port map(din=>PR3_rb_out, dout=>PR4_rb_out, wr_en=>PR4_en, clk=>clk);
-  PR4_wb_addr: dregsiter generic map(nbits=>3) port map(din=>PR3_wb_addr_out, dout=>PR4_wb_addr_out, wr_en=>PR4_en, clk=>clk);
+  PR4_d1 : dregsiter port map(din=>PR3_d1_out, dout=>PR4_d1_out, wr_en=>PR4_en, clk=>clk);
+  PR4_d2 : dregsiter port map(din=>PR3_d2_out, dout=>PR4_d2_out, wr_en=>PR4_en, clk=>clk);
   PR4_result: dregsiter port map(din=>mux8_out, dout=>PR4_res_out, wr_en=>PR4_en, clk=>clk);
-  PR4_opc: dregsiter generic map(nbits=>4) port map(din=>PR4_opc_out, dout=>PR4_opc_out, wr_en=>PR4_en, clk=>clk);
-
+  PR4_opc: dregsiter generic map(nbits=>4) port map(din=>PR3_opc_out, dout=>PR4_opc_out, wr_en=>PR4_en, clk=>clk);
+  PR4_wb_addr: dregsiter generic map(nbits=>3) port map(din=>PR3_wb_addr_out, dout=>PR4_wb_addr_out, wr_en=>PR4_en, clk=>clk);
   PR4_zt: onedregister port map(din=>PR4_cin, dout=>PR4_cout, wr_en=>'1', clk=>clk);
   PR4_ct : onedregister port map(din=>PR4_zin, dout=>PR4_zout, wr_en=>'1', clk=>clk);
+  PR4_truth: onedregsiter port map(din=>mux13_out, dout=>PR4_truth_out, wr_en=>PR4_en, clk=>clk);
 
   -- Stage 5
   PR4_SW <= not(PR4_opc_out(3)) and PR4_opc_out(2) and not(PR4_opc_out(1)) and PR4_opc_out(0);
