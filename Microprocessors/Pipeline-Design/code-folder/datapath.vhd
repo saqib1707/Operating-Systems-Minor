@@ -28,6 +28,8 @@ signal zeros:std_logic_vector(15 downto 0):="0000000000000000";
 signal ones:std_logic_vector(15 downto 0):="1111111111111111";
 signal add,adc,adz,adi,ndu,ndz,ndc,lhi,lw,lm,jal,jlr:std_logic_vector(3 downto 0);
 
+variable d1_flag,d2_flag:integer;
+
 begin
   --JLR <= IR_out(15) and (not(IR_out(14))) and (not(IR_out(13))) and IR_out(12);
   --BEQ <= IR_out(15) and IR_out(14) and (not(IR_out(13))) and (not(IR_out(12))); 
@@ -176,6 +178,309 @@ begin
   -- for the mux3_sel and mux14_sel , process has to be written from copy
   mux3: MUX21 port map(d1=>d1_out, d2=>mux8_out, s=>mux3_sel, dout=>mux3_out);
   mux14: MUX21 port map(d1=>d2_out, d2=>mux8_out, s=>mux14_sel, dout=>mux14_out);
+
+  
+  forward: process(PR2_IR_out,PR3_opc_out,PR4_opc_out,PR5_opc_out,PR3_wb_addr_out,PR4_wb_addr_out,PR5_wb_addr_out,
+                  mux17_out,mux2_out,mux13_sel,PR4_truth_out,PR5_truth_out) is
+    begin
+      opc2<=PR2_IR_out(15 downto 12);
+      opc3<=PR3_opc_out;
+      opc4<=PR4_opc_out;
+      opc5<=PR5_opc_out;
+
+      if(PR3_wb_addr_out=mux17_out or PR3_wb_addr_out=mux2_out) then
+
+        if(opc3=add or opc3=adi or opc3=ndu or opc3=lhi or opc3=jal or opc3=jlr) then
+
+          if(opc2=add or opc2=adc or opc2=adz or opc2=ndu or opc2=ndc or opc2=ndz or opc2=beq or opc2=sw or opc2=adi or opc2=lw or opc2=jlr or opc2=jal or opc2=lhi or opc2=lm or opc2=sm) then     -- those instructions which read at least one regsiter                   
+
+            if(PR3_wb_addr_out=mux17_out) then
+              mux3_sel<='1';
+              --d1_flag=1;
+            else
+              mux3_sel<='0';
+            end if;
+
+            if(PR3_wb_addr_out=mux2_out) then
+              mux14_sel<='1';
+              --d2_flag=1;
+            else
+              mux14_sel<='0';
+            end if;
+
+          end if;
+
+        elsif(opc3=adc or opc3=adz or opc3=ndc or opc3=ndz) then
+
+          -- for all instructions
+          if(PR3_wb_addr_out=mux17_out and mux13_sel='1') then
+            mux3_sel<='1';
+            --d1_flag=1;
+          else
+            mux3_sel<='0';
+          end if;
+          if(PR3_wb_addr_out=mux2_out and mux13_sel='1') then
+            mux14_sel<='1';
+            --d2_flag=1;
+          else
+            mux14_sel<='0';
+          end if;
+
+        else
+          mux3_sel<='0';
+          mux14_sel<='0';
+
+        end if;
+
+      else
+        
+        mux3_sel<='0';
+        mux14_sel<='0';
+      end if;
+
+      if(PR4_wb_addr_out=mux17_out or PR4_wb_addr_out=mux2_out) then
+
+        if(opc4=add or opc4=adi or opc4=ndu or opc4=lhi or opc4=jal or opc4=jlr) then
+
+          if(PR4_wb_addr_out=mux17_out and mux3_sel='0') then
+            mux21_sel<='1';
+          else
+            mux21_sel<='0';
+          end if;
+
+          if(PR4_wb_addr_out=mux2_out and mux14_sel='0') then
+            mux22_sel<='1';
+          else
+            mux22_sel<='0';
+          end if;
+
+        elsif(opc4=adc or opc4=adz or opc4=ndc or opc4=ndz) then
+
+          if(PR4_wb_addr_out=mux17_out and mux3_sel='0' and PR4_truth_out='1') then
+            mux21_sel<='1';
+          else
+            mux21_sel<='0';
+          end if;
+
+          if(PR4_wb_addr_out=mux2_out and mux14_sel='0' and PR4_truth_out='1') then
+            mux22_sel<='1';
+          else
+            mux22_sel<='0';
+          end if;
+
+        else
+          mux21_sel<='0';
+          mux22_sel<='0';
+        end if;
+
+      else
+        mux21_sel<='0';
+        mux22_sel<='0';
+      end if;
+
+      if(PR5_wb_addr_out=mux17_out or PR5_wb_addr_out=mux2_out) then
+
+        if(opc5=add or opc5=adi or opc5=ndu or opc5=lhi or opc5=jal or opc5=jlr) then
+
+          if(PR5_wb_addr_out=mux17_out and mux3_sel='0' and mux21_sel='0') then
+            mux23_sel<='1';
+          else
+            mux23_sel<='0';
+          end if;
+
+          if(PR5_wb_addr_out=mux2_out and mux14_sel='0' and mux22_sel='0') then
+            mux24_sel<='1';
+          else
+            mux24_sel<='0';
+          end if;
+
+        elsif(opc5=adc or opc5=adz or opc5=ndc or opc5=ndz) then
+
+          if(PR5_wb_addr_out=mux17_out and mux3_sel='0' and mux21_sel='0' and PR5_truth_out='1') then
+            mux23_sel<='1';
+          else
+            mux23_sel<='0';
+          end if;
+
+          if(PR4_wb_addr_out=mux2_out and mux14_sel='0' and mux22_sel='0' and PR5_truth_out='1') then
+            mux24_sel<='1';
+          else
+            mux24_sel<='0';
+          end if;
+
+        else
+          mux23_sel<='0';
+          mux24_sel<='0';
+        end if;
+
+      else
+        mux23_sel<='0';
+        mux24_sel<='0';
+      end if;
+
+  end process;
+        
+
+
+  --  begin
+  --    opc2<=PR2_IR_out(15 downto 12);
+  --    opc3<=PR3_opc_out;
+
+  --    if(opc2=add or opc2=adc or opc2=adz or opc2=ndu or opc2=ndc or opc2=ndz) then     -- those instructions which read two regsiters
+  --      if(opc3=add or opc3=adi or opc3=ndu or opc3=lhi or opc3=jal or opc3=jlr) then   -- those instructions which write to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(8 downto 6)) then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        if(PR3_wb_addr_out=PR2_IR_out(5 downto 3)) then
+  --          mux14_sel<='1';
+  --        else
+  --          mux14_sel<='0';
+  --        end if;
+  --      elsif(opc3=adc or opc3=adz or opc3=ndc or opc3=ndz) then          -- those instructions which write(conditional) to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(8 downto 6) and mux13_sel='1') then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        if(PR3_wb_addr_out=PR2_IR_out(5 downto 3) and mux13_sel='1') then
+  --          mux14_sel<='1';
+  --        else
+  --          mux14_sel<='0';
+  --        end if;
+  --      elsif(opc3=lw or opc3=lm) then   -- those instructions which write to regsiters (Awanish handling these)
+
+  --      else                               -- those instructions which do not write to registers (beq,sw,sm)
+  --        mux3_sel<='0';
+  --        mux14_sel<='0';
+      
+  --    elsif(opc2=adi or opc2=lw or opc2=jlr) then   -- those instructions which read only one regsiter (8-6)
+  --      if(opc3=add or opc3=adi or opc3=ndu or opc3=lhi or opc3=jal or opc3=jlr) then   -- those instructions which write to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(8 downto 6)) then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        --if(PR3_wb_addr_out=PR2_IR_out(5 downto 3)) then
+  --        --  mux14_sel<='1';
+  --        --else
+  --        --  mux14_sel<='0';
+  --        --end if;
+  --      elsif(opc3=adc or opc3=adz or opc3=ndc or opc3=ndz) then          -- those instructions which write(conditional) to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(8 downto 6) and mux13_sel='1') then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        --if(PR3_wb_addr_out=PR2_IR_out(5 downto 3) and mux13_sel='1') then
+  --        --  mux14_sel<='1';
+  --        --else
+  --        --  mux14_sel<='0';
+  --        --end if;
+  --      elsif(opc3=lw or opc3=lm) then   -- those instructions which write to regsiters (Awanish handling these)
+
+  --      else                               -- those instructions which do not write to registers (beq,sw,sm)
+  --        mux3_sel<='0';
+  --        mux14_sel<='0';
+
+  --    elsif(opc2=beq or opc2=sw) then      -- those instructions which read two regsiters (11-9) and (8-6)
+  --      if(opc3=add or opc3=adi or opc3=ndu or opc3=lhi or opc3=jal or opc3=jlr) then   -- those instructions which write to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(8 downto 6)) then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        if(PR3_wb_addr_out=PR2_IR_out(11 downto 9)) then
+  --          mux14_sel<='1';
+  --        else
+  --          mux14_sel<='0';
+  --        end if;
+  --      elsif(opc3=adc or opc3=adz or opc3=ndc or opc3=ndz) then          -- those instructions which write(conditional) to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(8 downto 6) and mux13_sel='1') then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        if(PR3_wb_addr_out=PR2_IR_out(11 downto 9) and mux13_sel='1') then
+  --          mux14_sel<='1';
+  --        else
+  --          mux14_sel<='0';
+  --        end if;
+  --      elsif(opc3=lw or opc3=lm) then   -- those instructions which write to regsiters (Awanish handling these)
+
+  --      else                               -- those instructions which do not write to registers (beq,sw,sm)
+  --        mux3_sel<='0';
+  --        mux14_sel<='0';
+
+  --    elsif(opc2=jal or opc2=lhi) then    -- these instructions do not read regsiters hence default case
+  --      mux3_sel<='0';
+  --      mux14_sel<='0';
+
+  --    elsif(opc2=lm) then      -- those instructions which read only one register(11-9)
+  --      if(opc3=add or opc3=adi or opc3=ndu or opc3=lhi or opc3=jal or opc3=jlr) then   -- those instructions which write to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(11 downto 9)) then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        --if(PR3_wb_addr_out=PR2_IR_out(5 downto 3)) then
+  --        --  mux14_sel<='1';
+  --        --else
+  --        --  mux14_sel<='0';
+  --        --end if;
+  --      elsif(opc3=adc or opc3=adz or opc3=ndc or opc3=ndz) then          -- those instructions which write(conditional) to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(11 downto 9) and mux13_sel='1') then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        --if(PR3_wb_addr_out=PR2_IR_out(5 downto 3) and mux13_sel='1') then
+  --        --  mux14_sel<='1';
+  --        --else
+  --        --  mux14_sel<='0';
+  --        --end if;
+  --      elsif(opc3=lw or opc3=lm) then   -- those instructions which write to regsiters (Awanish handling these)
+
+  --      else                               -- those instructions which do not write to registers (beq,sw,sm)
+  --        mux3_sel<='0';
+  --        mux14_sel<='0';
+
+  --    elsif (opc2=sm) then
+  --      if(opc3=add or opc3=adi or opc3=ndu or opc3=lhi or opc3=jal or opc3=jlr) then   -- those instructions which write to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(11 downto 9)) then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        if(PR3_wb_addr_out=PE_out) then
+  --          mux14_sel<='1';
+  --        else
+  --          mux14_sel<='0';
+  --        end if;
+  --      elsif(opc3=adc or opc3=adz or opc3=ndc or opc3=ndz) then          -- those instructions which write(conditional) to regsiters
+  --        if(PR3_wb_addr_out=PR2_IR_out(11 downto 9) and mux13_sel='1') then
+  --          mux3_sel<='1';
+  --        else
+  --          mux3_sel<='0';
+  --        end if;
+  --        if(PR3_wb_addr_out=PE_out and mux13_sel='1') then
+  --          mux14_sel<='1';
+  --        else
+  --          mux14_sel<='0';
+  --        end if;
+  --      elsif(opc3=lw or opc3=lm) then   -- those instructions which write to regsiters (Awanish handling these)
+
+  --      else                               -- those instructions which do not write to registers (beq,sw,sm)
+  --        mux3_sel<='0';
+  --        mux14_sel<='0';
+      
+  --    else
+  --      mux3_sel<='0';
+  --      mux14_sel<='0';
+  --    end if;
+
+  --end process;
 
   beqchecker: xor16 port map(x=>mux3_out, y=>mux14_out, z=>xor_out);
   adder2: sixteenbitadder port map(x=>PR2_PC_out, y=>mux1_out, cin=>'0', z=>adder2_out, cout=>adder2_carry);
