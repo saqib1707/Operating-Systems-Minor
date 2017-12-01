@@ -330,7 +330,7 @@ begin
 
   beqchecker: xor16 port map(x=>mux3_out, y=>mux14_out, z=>xor_out);
   adder2: sixteenbitadder port map(x=>PR2_PC_out, y=>mux1_out,z=>adder2_out);
-  mux5:  MUX4X1 port map(d1=>adder1_out, d2=>adder2_out, d3=>mux14_out, d4=>mux14_out, s1=>mux5_sel1, s0=>mux5_sel0, dout=>mux5_out);
+  mux5:  MUX4X1 port map(d1=>adder1_out, d2=>adder2_out, d3=>mux23_out, d4=>mux23_out, s1=>mux5_sel1, s0=>mux5_sel0, dout=>mux5_out);
   mux25: MUX21 port map(d1=>mux5_out, d2=>PR5_res_out, s=>mux25_sel, dout=>mux25_out);  -- if R7 changes then PC has to be updated
   lmbit <= (PR2_IR_out(7) or PR2_IR_out(6) or PR2_IR_out(5) or PR2_IR_out(4) or PR2_IR_out(3) or PR2_IR_out(2) or PR2_IR_out(1) or PR2_IR_out(0));
  
@@ -350,12 +350,12 @@ begin
   -- Stage 4
   forward_stage4:process(PR3_opc_out,PR4_opc_out,PR3_PC_out,PR4_PC_out) is
   begin 
-    if(PR3_opc_out = adi or PR3_opc_out = lw or PR3_opc_out = sw) then
-      mux6_sel<= '1';
-    else 
-      mux6_sel<= '0';
-    end if;
-
+    --if(PR3_opc_out = adi or PR3_opc_out = lw or PR3_opc_out = sw) then
+    --  mux6_sel<= '0';
+    --else 
+    --  mux6_sel<= '1';
+    --end if;
+    mux6_sel<='0';
     if(PR3_opc_out=lm or PR3_opc_out = sm) then
       if(PR3_PC_out/= PR4_PC_out) then
         mux7_sel1<= '1';
@@ -387,7 +387,7 @@ begin
 
   mux16:MUX21 port map(d1=>PR3_d1_out, d2=>PR5_res_out, s=>mux16_sel, dout=>mux16_out);
   mux20:MUX21 port map(d1=>PR3_d2_out, d2=>PR5_res_out, s=>mux20_sel, dout=>mux20_out);
-  mux6: MUX21 port map(d1=>mux16_out, d2=>PR3_d2_out, s=>mux6_sel, dout=>mux6_out);
+  mux6: MUX21 port map(d1=>mux16_out, d2=>PR3_d2_out, s=>'0', dout=>mux6_out);    ------i changed here if it doesn't work change it back
   mux7: MUX4X1 port map(d1=>mux20_out, d2=>ones, d3=>PR3_imm_out, d4=>zeros, s1=>mux7_sel1, s0=>mux7_sel0, dout=>mux7_out);
 
   mux26: MUX21 generic map(nbits=>4) port map(d1=>PR3_opc_out, d2=>"1111", s=>mux26_sel, dout=>mux26_out);
@@ -537,9 +537,9 @@ end process;
   process(PR4_opc_out,PR4_lmbit) is
     begin
       if(PR4_opc_out=sw) then
-        mux9_sel<='1';
-      else
         mux9_sel<='0';
+      else
+        mux9_sel<='1';
       end if;
       if(PR4_opc_out=lw or PR4_opc_out=lm) then
         mux10_sel<='1';

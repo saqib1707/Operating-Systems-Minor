@@ -638,7 +638,7 @@ architecture behave of register_file is
    end to_integer;
 	
 begin
-  regFile : process (clk,reset,wr_en,wr_en7,d3,d4,a1,a2,a3) is
+  regFile : process (clk,reset,wr_en,wr_en7,d3,d4,a1,a2,a3,registers) is
   begin
     if(reset = '1') then
       for i in 7 downto 0 loop
@@ -662,7 +662,7 @@ begin
           registers(7) <= d3;
         end if;
       end if;
-    
+    elsif(clk'event and clk = '0') then
       -- Read A and B before bypass
       d1 <= registers(To_Integer(unsigned(a1)));
       d2 <= registers(To_Integer(unsigned(a2)));
@@ -702,7 +702,8 @@ begin
    process(wrbar,din,addrin,reset,marray) is
    begin
 		if (reset = '1') then
-			marray<=(0=>"0001100000000011",1=>"0011011000001111",2=>"0001110000000100",3=>"0000101101011000",4=>"0001001001000001",5=>"1100010001000111",6=>"1001110100000000",7=>"0101101000000000",others=>"0000000000000000");
+			marray<=(0=>"0001101000001011",1=>"0001100000000011",2=>"0000110101100000",3=>"0000011100110000",4=>"0101011110000000",5=>"1001000011000000",6=>"0011001000000001",others=>"0000000000000000");
+			--marray<=(0=>"0001101000001011",1=>"0001100000000011",2=>"0000101101100000",3=>"0001110000000100",4=>"0000101101011000",5=>"0001001001000001",6=>"1100010001000111",7=>"1001110100000000",8=>"0101101000000000",others=>"0000000000000000");
 		end if;
     if(wrbar = '0') then
       marray(To_Integer(addrin)) <= din;
