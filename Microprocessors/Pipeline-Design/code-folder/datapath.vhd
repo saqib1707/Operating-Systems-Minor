@@ -31,19 +31,19 @@ signal add,adc,adz,adi,ndu,ndz,ndc,lhi,lw,lm,jal,jlr:std_logic_vector(3 downto 0
 variable d1_flag,d2_flag:integer;
 
 begin
-  --JLR <= IR_out(15) and (not(IR_out(14))) and (not(IR_out(13))) and IR_out(12);
-  --BEQ <= IR_out(15) and IR_out(14) and (not(IR_out(13))) and (not(IR_out(12))); 
-  --LHI <= (not(IR_out(15))) and (not(IR_out(14))) and IR_out(13) and IR_out(12);
-  --LW_SW <= ((not(IR_out(15))) and IR_out(14) and (not(IR_out(13))) and (not(IR_out(12)))) or ((not(IR_out(15))) and IR_out(14) and (not(IR_out(13))) and IR_out(12));
-  --LW_SW_ADI <= (LW_SW or (not(IR_out(15)) and not(IR_out(14)) and not(IR_out(13)) and IR_out(12)));
-  
-  --BEQ_SW <= (IR_out(15) and IR_out(14) and (not(IR_out(13))) and (not(IR_out(12)))) or ((not(IR_out(15))) and IR_out(14) and (not(IR_out(13))) and IR_out(12));
-  --SM <= (not(IR_out(15))) and IR_out(14) and IR_out(13) and IR_out(12);
-  --LM <= (not(IR_out(15)))  and IR_out(14) and IR_out(13) and (not(IR_out(12)));
-  
   add <= "0000";
+  add2bits <= "00";
+  adz <= "0000";
+  adz2bits<= "01";
+  adc <= "0000";
+  adc2bits <= "10";
   adi <= "0001";
-  ndu <= "0010"
+  ndu <= "0010";
+  ndu2bits<="00";
+  ndc <= "0010";
+  ndc2bits <= "10";
+  ndz <= "0010";
+  ndz2bits <= "01";
   lhi <= "0011";
   lw <= "0100";
   sw <= "0101";
@@ -53,17 +53,16 @@ begin
   jlr <= "1001";
   beq <= "1100";
 
-
-  PR2_I6 <= (LW_SW_ADI or BEQ);
-  PR2_LM <= (not(PR2_IR_out(15)) and PR2_IR_out(14) and PR2_IR_out(13) and not(PR2_IR_out(12)));
-  PR2_SM <= (not(PR2_IR_out(15)) and PR2_IR_out(14) and PR2_IR_out(13) and PR2_IR_out(12));
-  PR2_LM_SM <= PR2_LM or PR2_SM;
-  PR2_JAL <= PR2_IR_out(15) and not(PR2_IR_out(14)) and not(PR2_IR_out(13)) and not(PR2_IR_out(12));
-  PR2_JLR <= PR2_IR_out(15) and (not(PR2_IR_out(14))) and (not(PR2_IR_out(13))) and PR2_IR_out(12);
+  --PR2_I6 <= (LW_SW_ADI or BEQ);
+  --PR2_LM <= (not(PR2_IR_out(15)) and PR2_IR_out(14) and PR2_IR_out(13) and not(PR2_IR_out(12)));
+  --PR2_SM <= (not(PR2_IR_out(15)) and PR2_IR_out(14) and PR2_IR_out(13) and PR2_IR_out(12));
+  --PR2_LM_SM <= PR2_LM or PR2_SM;
+  --PR2_JAL <= PR2_IR_out(15) and not(PR2_IR_out(14)) and not(PR2_IR_out(13)) and not(PR2_IR_out(12));
+  --PR2_JLR <= PR2_IR_out(15) and (not(PR2_IR_out(14))) and (not(PR2_IR_out(13))) and PR2_IR_out(12);
 
   -- Stage 1
-  PC: dregister port map(din=>mux5_out, dout=>PC_out, wr_en=>PC_en, clk=>clk);
-  adder1 : sixteenbitadder port map(x=>PC_out, y=>'1', cin=>'0', z=>adder1_out, cout=>adder1_carry);
+  PC: dregister port map(din=>mux25_out, dout=>PC_out, wr_en=>PC_en, clk=>clk);
+  adder1 : sixteenbitadder port map(x=>PC_out, y=>ones, cin=>'0', z=>adder1_out, cout=>adder1_carry);
   Imemory: asynch_mem port map(din=>zeros, dout=>Imem_data_out, rdbar=>'0', wrbar=>'1', addrin=>PC_out, reset=>reset);
 
   PR1_IR : dregister port map(din=>Imem_data_out, dout=>PR1_IR_out, wr_en=>PR1_en, clk=>clk);
@@ -151,30 +150,14 @@ begin
       end if;
       if(PR2_IR_out(15 downto 12)=jal) then
         mux5_sel0<='1';
-      else
+      elsif(PR2_IR_out(15 downto 12)=beq)
         mux5_sel0<=xor_out;
-      end if;
-  end process;
-
-  process(PR5_opc,last2bits,PR5_wr_en) is
-  begin
-    if (PR5_opc = adi or PR5_opc = lhi or PR5_opc = lw or PR5_opc = lm or PR5_opc = jal or PR5_opc = jlr) then
-      P <= '1';
-    elsif (PR5_opc = "0000" or PR5_opc = "0010") then
-      if(last2bits = "00") then
-        P<='1';
-      elsif(last2bits = "01" or last2bits = "10") then
-        P <= PR5_wr_en;
       else
-        P <= '0';
+        mux5_sel0<='0';
       end if;
-    else
-      P <= '0';
-    end if;
   end process;
 
-  r7_en <= (P or PC_en);
-  regfile: register_file port map(a1=>mux17_out,a2=>mux2_out, a3=>PR5_wb_addr_out, a4=>"111", d3=>PR5_res_out, wr_en=>P, wr_en7=>r7_en, d1=>d1_out, d2=>d2_out, clk=>clk,reset=>reset);
+  regfile: register_file port map(a1=>mux17_out,a2=>mux2_out,a3=>PR5_wb_addr_out,a4=>"111",wr_en=>P,wr_en7=>r7_en,d1=>d1_out,d2=>d2_out,d3=>PR5_res_out,d4=>mux5_out,clk=>clk,reset=>reset);
   mux4: MUX21 generic map(nbits=>3) port map(d1=>PR2_IR_out(11 downto 9), d2=>PE_out, s=>mux4_sel, dout=>mux4_out);
 
   -- forward logic at stage 3
@@ -186,7 +169,7 @@ begin
   mux24: MUX21 port map(d1=>mux22_out, d2=>PR5_res_out, s=>mux24_sel, dout=>mux24_out);
 
   
-  forward: process(PR2_IR_out,PR3_opc_out,PR4_opc_out,PR5_opc_out,PR3_wb_addr_out,PR4_wb_addr_out,PR5_wb_addr_out,
+  forward_stage3: process(PR2_IR_out,PR3_opc_out,PR4_opc_out,PR5_opc_out,PR3_wb_addr_out,PR4_wb_addr_out,PR5_wb_addr_out,
                   mux17_out,mux2_out,mux13_sel,PR4_truth_out,PR5_truth_out) is
     begin
       opc2<=PR2_IR_out(15 downto 12);
@@ -491,7 +474,9 @@ begin
   beqchecker: xor16 port map(x=>mux3_out, y=>mux14_out, z=>xor_out);
   adder2: sixteenbitadder port map(x=>PR2_PC_out, y=>mux1_out, cin=>'0', z=>adder2_out, cout=>adder2_carry);
   mux5:  MUX4X1 port map(d1=>PR2_PC_out, d2=>adder2_out, d3=>mux14_out, d4=>mux14_out, s1=>mux5_sel1, s0=>mux5_sel0, dout=>mux5_out);
-
+  mux25: MUX21 port map(d1=>mux5_out, d2=>PR5_res_out, s=>mux25_sel, dout=>mux25_out);  -- if R7 changes then PC has to be updated
+  lmbit <= (PR2_IR_out(7) or PR2_IR_out(6) or PR2_IR_out(5) or PR2_IR_out(4) or PR2_IR_out(3) or PR2_IR_out(2) or PR2_IR_out(1) or PR2_IR_out(0));
+ 
   -- PR3 registers
   PR3_d1_addr: dregister generic map(nbits=>3) port map(din=>mux17_out, dout=>PR3_d1_addr_out, wr_en=>PR3_en, clk=>clk);
   PR3_d2_addr: dregister generic map(nbits=>3) port map(din=>mux2_out, dout=>PR3_d2_addr_out, wr_en=>PR3_en, clk=>clk);
@@ -501,17 +486,10 @@ begin
   PR3_wb_addr: dregsiter generic map(nbits=>3) port map(din=>mux4_out, dout=>PR3_wb_addr_out, wr_en=>PR3_en, clk=>clk);
   PR3_Imm: dregsiter port map(din=>mux1_out, dout=>PR3_imm_out, wr_en=>PR3_en, clk=>clk);
   PR3_opc: dregsiter generic map(nbits=>4) port map(din=>PR2_IR_out(15 downto 12), dout=>PR3_opc_out, wr_en=>PR3_en, clk=>clk);
+  PR3_lm: onedregister port map(din=>lmbit, dout=>PR3_lmbit, wr_en=>PR3_en, clk=>clk);
 
   -- Stage 4
-
-  --PR3_LW <= not(PR3_opc_out(3)) and PR3_opc_out(2) and not(PR3_opc_out(1)) and not(PR3_opc_out(0));
-  --PR3_SW <= not(PR3_opc_out(3)) and PR3_opc_out(2) and not(PR3_opc_out(1)) and PR3_opc_out(0);
-  --PR3_ADI <= not(PR3_opc_out(3)) and not(PR3_opc_out(2)) and not(PR3_opc_out(1)) and PR3_opc_out(0);
-  --PR3_LHI <= not(PR3_opc_out(3)) and not(PR3_opc_out(2)) and PR3_opc_out(1) and PR3_opc_out(0);
-  --PR3_JLR <= PR3_opc_out(3) and not(PR3_opc_out(2)) and not(PR3_opc_out(1)) and PR3_opc_out(0);
-  --PR3_JAL <= PR3_opc_out(3) and not(PR3_opc_out(2)) and not(PR3_opc_out(1)) and not(PR3_opc_out(0));
-  --gamma <= PR3_JLR or PR3_JAL;
-  process(PR3_opc_out,PR4_opc_out) is
+  forward_stage4:process(PR3_opc_out,PR4_opc_out) is
   begin 
     if(PR3_opc_out = adi or PR3_opc_out = lw or PR3_opc_out = sw) then
       mux6_sel<= '1';
@@ -661,6 +639,7 @@ end process
   PR4_zt: onedregister port map(din=>PR4_cin, dout=>PR4_cout, wr_en=>'1', clk=>clk);
   PR4_ct : onedregister port map(din=>PR4_zin, dout=>PR4_zout, wr_en=>'1', clk=>clk);
   PR4_truth: onedregsiter port map(din=>mux13_out, dout=>PR4_truth_out, wr_en=>PR4_en, clk=>clk);
+  PR4_lm: onedregister port map(din=>PR3_lmbit, dout=>PR4_lmbit, wr_en=>PR4_en, clk=>clk);
 
   -- Stage 5
   mux9: MUX21 port map(d1=>PR4_d2_out, d2=>PR4_d1_out, s=>mux9_sel, dout=>mux9_out);
@@ -684,31 +663,54 @@ end process
 
   -- PR5 regsiters
   PR5_wb_addr: dregsiter generic map(nbits=>3) port map(din=>PR4_wb_addr_out, dout=>PR5_wb_addr_out, wr_en=>PR5_en, clk=>clk);
-  PR5_result: dregsiter port map(din=>mux10_out, dout=>PR5_res_out, wr_en=>PR5_en, clk=>clk);
   PR5_opc: dregsiter generic map(nbits=>4) port map(din=>PR4_opc_out, dout=>PR5_opc_out, wr_en=>PR5_en, clk=>clk);
+  PR5_result: dregsiter port map(din=>mux10_out, dout=>PR5_res_out, wr_en=>PR5_en, clk=>clk);
 
-  PR5_ct : onedregister port map(din=>PR4_cout, dout=>PR5_cout, wr_en=>'1', clk=>clk);
+  PR5_ct : onedregister port map(din=>PR4_cout, dout=>PR5_cout, wr_en=>PR5_en, clk=>clk);
+  PR5_zt: onedregister port map(din=>PR4_zout, dout=>PR5_zout, wr_en=>PR5_en, clk=>clk);
+  PR5_truth: onedregister port map(din=>PR4_truth_out, dout=>PR5_truth_out, wr_en=>PR5_en, clk=>clk);
+  PR5_lm: onedregister port map(din=>PR4_lmbit, dout=>PR5_lmbit, wr_en=>PR5_en, clk=>clk);
 
-  eta<=not(Dmem_data_out(15) or Dmem_data_out(14) or Dmem_data_out(13) or Dmem_data_out(12) or Dmem_data_out(11) or Dmem_data_out(10) 
-        or Dmem_data_out(9) or Dmem_data_out(8) or Dmem_data_out(7) or Dmem_data_out(6) or Dmem_data_out(5) or Dmem_data_out(4)
-        or Dmem_data_out(3) or Dmem_data_out(2) or Dmem_data_out(1) or Dmem_data_out(0));
-  mux12: MUX21 generic map(nbits=>1) port map(d1=>PR4_zout, d2=>eta, s=>mux12_sel, dout=>mux12_out);
-  PR5_zt: onedregister port map(din=>mux12_out, dout=>PR5_zout, wr_en=>'1', clk=>clk);
+  --mux12: MUX21 generic map(nbits=>1) port map(d1=>PR4_zout, d2=>eta, s=>mux12_sel, dout=>mux12_out);
+
+  --eta<=not(Dmem_data_out(15) or Dmem_data_out(14) or Dmem_data_out(13) or Dmem_data_out(12) or Dmem_data_out(11) or Dmem_data_out(10) 
+  --      or Dmem_data_out(9) or Dmem_data_out(8) or Dmem_data_out(7) or Dmem_data_out(6) or Dmem_data_out(5) or Dmem_data_out(4)
+  --      or Dmem_data_out(3) or Dmem_data_out(2) or Dmem_data_out(1) or Dmem_data_out(0));
 
   carry_flag: onedregister port map(din=>PR5_cout, dout=>CF, wr_en=>c_en, clk=>clk);
   zero_flag: onedregister port map(din=>PR5_zout, dout=>ZF, wr_en=>z_en, clk=>clk);
 
+  flag_enable:process(PR5_opc_out,PR5_truth_out) is
+    begin
+      opc5<=PR5_opc_out;
+      if((opc5=add or opc5=adi or opc5=adc or opc5=adz) and PR5_truth_out='1') then
+        c_en<='1';
+      else
+        c_en<='0';
+      end if;
 
+      if((opc5=add or opc5=adi or opc5=adc or opc5=adz or opc5=ndu or opc5=ndz or opc5=ndc) and PR5_truth_out='1') then
+        z_en<='1';
+      else
+        z_en<='0';
+      end if;
+  end process;
 
-
-  process() is
+  RF_wr_en:process(PR5_opc_out,PR5_2bits,PR5_truth_out,PR5_lmbit) is
   begin
-    if(PR3_opc = adc) then
-      if(PR4_opc=add or PR4_opc=adc or PR4_opc=adz or PR4_opc = adi) then
-        if(PR4_truth='1') then
-          if(PR4_cout='1') then
+    if ((PR5_opc_out=add and PR5_2bits="00") or (PR5_opc_out=ndu and PR5_2bits="00") or PR5_opc_out=adi or PR5_opc_out=lhi or PR5_opc_out=lw or PR5_opc_out=jal or PR5_opc_out=jlr) then
+      P <= '1';
+    elsif (((PR5_opc_out=adc and PR5_2bits="10") or (PR5_opc_out=adz and PR5_2bits="01") or (PR5_opc_out=ndc and PR5_2bits="10") or (PR5_opc_out=ndz and PR5_2bits="01")) and PR5_truth_out='1') then
+      P <= '1';
+    elsif (PR5_opc_out=lm and PR5_lmbit='1') then
+      P<='1';
+    else
+      P<='0';
+    end if;
 
-  end process; 
+    r7_en <= (P or PC_en);
+    mux25_sel <= (PR5_wb_addr_out(2) and PR5_wb_addr_out(1) and PR5_wb_addr_out(0)) and P;
+  end process;
 
 
 
