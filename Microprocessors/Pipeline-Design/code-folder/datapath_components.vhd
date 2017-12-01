@@ -23,16 +23,16 @@ package datapath_components is
     );
   end component;
   component leftshift is
-    port (din: in std_logic_vector(15 downto 0);
+    port (din: in std_logic_vector(8 downto 0);
       dout:out std_logic_vector(15 downto 0)
     );
   end component;
   component sgn is
-    generic (nbits:integer:=9);
-  	port (
-	  	din : in STD_LOGIC_VECTOR(nbits-1 downto 0);
-	    dout : out STD_LOGIC_VECTOR(15 downto 0)
-  	);
+    generic (nbits:integer:=9;flag:integer:=0);   -- flag = 0 => bit extend with zeros and flag = 1 => bit extend with ones
+    port (
+      din : in STD_LOGIC_VECTOR(nbits-1 downto 0);
+      dout : out STD_LOGIC_VECTOR(15 downto 0)
+    );
   end component;
   component priority_encoder is
     port (
@@ -46,6 +46,13 @@ package datapath_components is
       dout : out STD_LOGIC_VECTOR(8 downto 0)
     );
   end component;
+  component singlebitMUX is
+    --generic (nbits: integer:= 16);
+    port (d1, d2: in std_logic;
+        s: in std_logic;
+        dout: out std_logic
+    );
+  end component; 
   component MUX21 is
     generic (nbits: integer:= 16);
 	  port (d1, d2: in std_logic_vector(nbits-1 downto 0);
@@ -62,12 +69,12 @@ package datapath_components is
   end component;
   component register_file is
     port (
-	    a1, a2, a3: in std_logic_vector(2 downto 0);
-	    d3: in std_logic_vector(15 downto 0);
-	    wr_en: in std_logic;
-	    d1, d2: out std_logic_vector(15 downto 0);
-	    clk,reset: in std_logic
-  	);
+      clk,reset: in std_logic;
+      wr_en, wr_en7: in std_logic;
+      a1, a2, a3, a4: in std_logic_vector(2 downto 0);
+      d3, d4: in std_logic_vector(15 downto 0);
+      d1, d2: out std_logic_vector(15 downto 0)
+    );
   end component;
   component asynch_mem is
   	generic (data_width: integer:= 16; addr_width: integer := 16);
@@ -85,7 +92,7 @@ package datapath_components is
 	    din  : in  std_logic_vector(nbits-1 downto 0);
 	    dout : out std_logic_vector(nbits-1 downto 0);
 	    wr_en: in std_logic;
-	    clk     : in std_logic
+	    clk,reset     : in std_logic
 	  );
 	end component;
   component onedregister is
@@ -93,12 +100,14 @@ package datapath_components is
     din  : in  std_logic;
     dout : out std_logic;
     wr_en: in std_logic;
-    clk     : in std_logic);
+    clk,reset    : in std_logic
+  );
   end component;
   component xor16 is
     generic (nbits:integer:=16);
     port (x, y: in std_logic_vector(nbits-1 downto 0);
-          z:out std_logic);
+          z:out std_logic
+    );
   end component;
   component sixteenbitadder is
     port (x,y: in std_logic_vector(15 downto 0);
@@ -135,7 +144,7 @@ entity alu is
 end entity;
 
 architecture behave of alu is 
-  signal sig1,sig2,sig3,sig4,sig5 : std_logic_vector(15 downto 0);
+  signal sig1,sig4 : std_logic_vector(15 downto 0);
   signal carry: std_logic;
   constant zeros: std_logic_vector(15 downto 0) := "0000000000000000";
 
@@ -148,6 +157,7 @@ architecture behave of alu is
   end component;
 
   component and16 is
+    generic (nbits: integer:= 16);
     port(x, y:in std_logic_vector(15 downto 0); z:out std_logic_vector(15 downto 0));
   end component;
 
@@ -157,8 +167,8 @@ architecture behave of alu is
 
   begin 
   a: sixteenbitadder       port map(x => X, y => Y, z => sig1, carry_flag=>carry);
-  b: sixteenbitsubtractor  port map(x => X, y => Y, z => sig2);
-  c: and16       port map(x => X, y => Y, z => sig3);
+  --b: sixteenbitsubtractor  port map(x => X, y => Y, z => sig2);
+  --c: and16       port map(x => X, y => Y, z => sig3);
   d: nand16      port map(x => X, y => Y, z => sig4);
 
   process(OPC, sig1, sig4, carry) is
@@ -181,7 +191,7 @@ architecture behave of alu is
 
       if (OPC = "0010") then      -- ndz,ndu,ndc
         Z <= sig4;
-        sig5 <= sig4;
+        --sig5 <= sig4;
         CF <='0';
         if (sig4 = zeros) then
           ZF <= '1';
@@ -202,7 +212,7 @@ architecture behave of alu is
       --  CF <='0';
       else 
         Z <= sig1;
-        sig5 <= sig1;
+        --sig5 <= sig1;
         CF <= carry;
         if(sig1 = zeros) then
           ZF <= '1';
@@ -226,10 +236,11 @@ use ieee.std_logic_1164.all;
 entity xor16 is
 generic (nbits:integer:=16);
 port (x, y: in std_logic_vector(nbits-1 downto 0);
-      z:out std_logic;
+      z:out std_logic
+);
 end entity;
 
-architecture behave of nand16 is
+architecture behave of xor16 is
   signal s:std_logic_vector(nbits-1 downto 0);
 begin
   compute_xor: process(x, y) is
@@ -302,7 +313,8 @@ end entity;
 architecture behave of sixteenbitadder is
   component onebitadder is
     port(x,y,cin : in std_logic;
-        z,cout : out std_logic);
+        z,cout : out std_logic
+    );
   end component;
   signal c:std_logic_vector(15 downto 0);
 begin
@@ -404,7 +416,7 @@ use ieee.std_logic_1164.all;
 
 entity leftshift is
 port 
-  (din: in std_logic_vector(15 downto 0);
+  (din: in std_logic_vector(8 downto 0);
     dout:out std_logic_vector(15 downto 0)
   );
 end entity;
@@ -439,7 +451,7 @@ begin
     for i in (nbits-1) downto 0 loop
       dout(i) <= din(i);
     end loop;
-    if flag = '0' then
+    if (flag = 0) then
       for j in 15 downto nbits loop
         dout(j) <= '0';
       end loop;
@@ -525,6 +537,29 @@ begin
     end process;
 end behave;
 
+----------------------singlebitMUX--------------------------
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity singlebitMUX is
+  --generic (nbits: integer:= 16);
+  port (d1, d2: in std_logic;
+      s: in std_logic;
+      dout: out std_logic
+  );
+end entity singlebitMUX;
+architecture behave of singlebitMUX is
+begin
+  logic_singlebitMUX: process(d1, d2, s) is
+  begin
+    if(s = '0') then
+      dout <= d1;
+    else
+      dout <= d2;
+    end if;
+  end process;
+end behave;
+
 -----------------------MUX21--------------------------
 library ieee;
 use ieee.std_logic_1164.all;
@@ -583,11 +618,11 @@ use ieee.std_logic_1164.all;
 
 entity register_file is
   port (
-    a1, a2, a3: in std_logic_vector(2 downto 0);
-    d3, d4: in std_logic_vector(15 downto 0);
+    clk,reset: in std_logic;
     wr_en, wr_en7: in std_logic;
-    d1, d2: out std_logic_vector(15 downto 0);
-    clk,reset: in std_logic
+    a1, a2, a3, a4: in std_logic_vector(2 downto 0);
+    d3, d4: in std_logic_vector(15 downto 0);
+    d1, d2: out std_logic_vector(15 downto 0)
   );
 end entity register_file;
 architecture behave of register_file is
@@ -646,13 +681,13 @@ entity asynch_mem is
         dout: out std_logic_vector(data_width-1 downto 0);
         rdbar: in std_logic;
         wrbar: in std_logic;
-		  reset :in std_logic;
+		    reset :in std_logic;
         addrin: in std_logic_vector(addr_width-1 downto 0)
   );
 end entity;
 architecture behave of asynch_mem is
    type MemArray is array(natural range <>) of std_logic_vector(data_width-1 downto 0);
-   signal marray: MemArray(0 to ((2**(addr_width-12))-1));--:=(0=>"0001100000000100",1=>"0001011000000101",2=>"0001010000000011",others=>"0000000000000000");
+   signal marray: MemArray(0 to ((2**addr_width)-1));
 
    function To_Integer(x: std_logic_vector) return integer is
       variable xu: unsigned(x'range);
@@ -664,19 +699,15 @@ architecture behave of asynch_mem is
    end To_Integer;
 begin
    -- there is only one state..
-   process(rdbar, wrbar, din, addrin,reset) is
-      --variable addr_var: integer range 0 to ((2**(addr_width-12))-1);
+   process(wrbar,din,addrin,reset,marray) is
    begin
 		if (reset = '1') then
-			marray<= (0=>"0001100000000011",1=>"0001011000000101",2=>"0001010000000011",3=>"0000101101011000",4=>"0001001001000001",5=>"1100010001000111",6=>"1001110100000000",7=>"0101101000000000",others=>"0000000000000000");
+			marray<=(0=>"0001100000000011",1=>"0011011000001111",2=>"0001110000000100",3=>"0000101101011000",4=>"0001001001000001",5=>"1100010001000111",6=>"1001110100000000",7=>"0101101000000000",others=>"0000000000000000");
 		end if;
-      --addr_var := To_Integer(addrin);
-      if(rdbar = '0') then
-        dout <= marray(To_Integer(addrin));
-      end if;
-      if(wrbar = '0') then
-        marray(To_Integer(addrin)) <= din;
-      end if;     
+    if(wrbar = '0') then
+      marray(To_Integer(addrin)) <= din;
+    end if;
+    dout <= marray(To_Integer(addrin));
    end process;
 end behave;
 
@@ -693,14 +724,19 @@ entity dregister is
     din  : in  std_logic_vector(nbits-1 downto 0);
     dout : out std_logic_vector(nbits-1 downto 0);
     wr_en: in std_logic;
-    clk     : in std_logic);
+    clk,reset: in std_logic);
 end dregister;
 
 architecture behave of dregister is
+  --signal reg:std_logic_vector(nbits-1 downto 0);
 begin
-process(clk,din,wr_en)
+process(clk,din,wr_en,reset)
 begin 
-  if(clk'event and clk = '1') then
+  if(reset='1') then
+    for i in nbits-1 downto 0 loop
+      dout(i)<='0';
+    end loop;
+  elsif(clk'event and clk = '1') then
     if wr_en = '1' then
       dout <= din;
     end if;
@@ -719,14 +755,16 @@ entity onedregister is
     din  : in  std_logic;
     dout : out std_logic;
     wr_en: in std_logic;
-    clk     : in std_logic);
+    clk,reset: in std_logic);
 end onedregister;
 
 architecture behave of onedregister is
 begin
-process(clk,din,wr_en)
-begin 
-  if(clk'event and clk = '1') then
+process(clk,din,wr_en,reset)
+begin
+  if (reset='1') then
+    dout <= '0';
+  elsif(clk'event and clk = '1') then
     if wr_en = '1' then
       dout <= din;
     end if;
