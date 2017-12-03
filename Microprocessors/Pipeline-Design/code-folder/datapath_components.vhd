@@ -82,7 +82,7 @@ package datapath_components is
 	        dout: out std_logic_vector(data_width-1 downto 0);
 	        rdbar: in std_logic;
 	        wrbar: in std_logic;
-			    reset: in std_logic;
+			    clk,reset: in std_logic;
 	        addrin: in std_logic_vector(addr_width-1 downto 0)
 	  );
 	end component;
@@ -106,7 +106,13 @@ package datapath_components is
   component xor16 is
     generic (nbits:integer:=16);
     port (x, y: in std_logic_vector(nbits-1 downto 0);
-          z:out std_logic
+          s:out std_logic_vector(nbits-1 downto 0)
+    );
+  end component;
+  component or16 is
+    generic (nbits:integer:=16);
+    port (x, y: in std_logic_vector(nbits-1 downto 0);
+          s:out std_logic_vector(nbits-1 downto 0)
     );
   end component;
   component sixteenbitadder is
@@ -236,19 +242,40 @@ use ieee.std_logic_1164.all;
 entity xor16 is
 generic (nbits:integer:=16);
 port (x, y: in std_logic_vector(nbits-1 downto 0);
-      z:out std_logic
+      s:out std_logic_vector(nbits-1 downto 0)
 );
 end entity;
 
 architecture behave of xor16 is
-  signal s:std_logic_vector(nbits-1 downto 0);
-begin
+ begin
   compute_xor: process(x, y) is
   begin
     for i in nbits-1 downto 0 loop
       s(i) <= (x(i) xor y(i));
     end loop;
-    z <= not (s(15) or s(14) or s(13) or s(12) or s(11) or s(10) or s(9) or s(8) or s(7) or s(6) or s(5) or s(4) or s(3) or s(2) or s(1) or s(0));
+  end process;
+end behave;
+
+--------------------or16---------------------
+library std;
+use std.standard.all;
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity or16 is
+generic (nbits:integer:=16);
+port (x, y: in std_logic_vector(nbits-1 downto 0);
+      s:out std_logic_vector(nbits-1 downto 0)
+);
+end entity;
+
+architecture behave of or16 is
+ begin
+  compute_or: process(x, y) is
+  begin
+    for i in nbits-1 downto 0 loop
+      s(i) <= (x(i) or y(i));
+    end loop;
   end process;
 end behave;
 
@@ -681,7 +708,7 @@ entity asynch_mem is
         dout: out std_logic_vector(data_width-1 downto 0);
         rdbar: in std_logic;
         wrbar: in std_logic;
-		    reset :in std_logic;
+		clk,reset :in std_logic;
         addrin: in std_logic_vector(addr_width-1 downto 0)
   );
 end entity;
@@ -699,14 +726,20 @@ architecture behave of asynch_mem is
    end To_Integer;
 begin
    -- there is only one state..
-   process(wrbar,din,addrin,reset,marray) is
+   process(wrbar,din,addrin,reset,marray,clk) is
    begin
 		if (reset = '1') then
-			marray<=(0=>"0001101000001011",1=>"0001100000000011",2=>"0000110101100000",3=>"0000011100110000",4=>"0101011110000000",5=>"1001000011000000",6=>"0011001000000001",others=>"0000000000000000");
-			--marray<=(0=>"0001101000001011",1=>"0001100000000011",2=>"0000101101100000",3=>"0001110000000100",4=>"0000101101011000",5=>"0001001001000001",6=>"1100010001000111",7=>"1001110100000000",8=>"0101101000000000",others=>"0000000000000000");
-		end if;
-    if(wrbar = '0') then
-      marray(To_Integer(addrin)) <= din;
+			--marray<=(0=>"0001101000001011",1=>"0001100000000011",2=>"0000110101100000",3=>"0000011100110000",4=>"0101011110000000",5=>"1001000011000000",6=>"0011001000000001",others=>"0000000000000000");
+			--marray<=(0=>"0001101000001011",1=>"1100101010000111",2=>"0100011000001001",3=>"0000110101101000",4=>"0001001000001111",5=>"0101001000000100",6=>"0000000000000000",7=>"0000000000000000",8=>"0000000000000000",9=>"0000000011111111",others=>"0000000000000000");  --(Set 2) 
+			--marray<=(0=>"0001101000001011",1=>"1100101010000111",2=>"0100011000001001",3=>"0000110101101000",4=>"1000001000000101",5=>"0001001001001111",6=>"0101001000000100",7=>"0000000000000000",8=>"0000000000000000",9=>"0000000011111111",11=>"0100001010000100",12=>"0101001010001010",10=>"0011110000011111",others=>"0000000000000000");  --(SEt 5) 
+			--marray<=(0=>"0100001010000100",1=>"0101001010001010",4=>"0011110000011111",5=>"0100111010000001",others=>"0000000000000000"); -- Set 4
+			--marray<=(1=>"0011001111111111",2=>"0000011001001000",0=>"0001010000111111",3=>"0000100010010010",4=>"0000101010001010",others=>"0000000000000000");  -- Set 6
+			--marray<=(0=>"0001001000000101",1=>"0110001000111100",2=>"0000000000000000",3=>"0000000000000000",4=>"0000000000000000",5=>"0000000000001010",6=>"0000000000001011",7=>"0000000000001100",8=>"0000000000001101",9=>"0000000000001110",10=>"0000000000001111",others=>"0000000000000000"); -- set 7
+			marray<=(0=>"0001010000000001",1=>"0001011000000011",2=>"0001100000000111",3=>"0001101000001111",4=>"0001110000011111",5=>"0001001000001010",6=>"0111001001111100",others=>"0000000000000000");
+		elsif(clk'event and clk = '1') then
+    	if(wrbar = '0') then
+      	marray(To_Integer(addrin)) <= din;
+    	end if;
     end if;
     dout <= marray(To_Integer(addrin));
    end process;
