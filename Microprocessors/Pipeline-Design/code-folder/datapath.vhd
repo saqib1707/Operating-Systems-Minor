@@ -25,16 +25,16 @@ signal mux27_out,mux22_out,mux23_out,mux24_out,adder2_out,PR3_imm_out,mux6_out,m
 signal PR3_d1_out,PR3_d2_out,PR4_PC_out:std_logic_vector(15 downto 0):=zeros;
 signal r7_en,P,cin,PR1_en,PR2_IR_en,PR2_PC_en,mux0_sel,mux1_sel1,mux1_sel0,flag:std_logic:='0';
 signal mux17_sel,mux18_sel,mux2_sel,mux4_sel,mux5_sel1,mux16_sel,mux20_sel,PR4_cout,PR4_zout,PR5_cout:std_logic:='0';
-signal mux9_sel,c1,c2,PR5_en,c_en,z_en,PR4_opc_en,Dmem_rdbar,Dmem_wrbar,PR5_lmbit:std_logic:='0';
-signal mux5_sel0,mux3_sel,mux14_sel,mux27_sel,mux22_sel,mux23_sel,mux24_sel,mux25_sel,mux13_sel,PR4_truth_out:std_logic:='0';
+signal mux9_sel,PR5_en,c_en,z_en,PR4_opc_en,Dmem_rdbar,Dmem_wrbar,PR5_lmbit:std_logic:='0';
+signal mux5_sel0,mux3_sel,mux14_sel,mux27_sel,mux22_sel,mux23_sel,mux24_sel,mux25_sel1,mux25_sel0,mux13_sel,PR4_truth_out:std_logic:='0';
 signal PR5_truth_out,PR3_en,lmbit,PR3_lmbit,PR4_lmbit,mux6_sel,mux7_sel1,mux7_sel0,mux8_sel1,mux8_sel0,PR4_cin,PR4_zin:std_logic:='0';
-signal mux13_out,PR5_zout,CF,ZF,PR4_en,mux10_sel,PC_en,mux26_sel:std_logic:='0';
+signal mux13_out,PR5_zout,CF,ZF,PR4_en,mux10_sel,PC_en,mux34_sel:std_logic:='0';
 signal mux2_out,mux4_out,PE_out,mux17_out,mux18_out,PR3_wb_addr_out,PR4_wb_addr_out,PR5_wb_addr_out,PR3_d1_addr_out,PR3_d2_addr_out:std_logic_vector(2 downto 0):="000";
-signal PR3_opc_out,PR4_opc_out,PR5_opc_out,mux26_out: std_logic_vector(3 downto 0):="0000";
+signal PR3_opc_out,PR4_opc_out,PR5_opc_out,mux34_out,mux33_out: std_logic_vector(3 downto 0):="0000";
 signal ZE_out:std_logic_vector(8 downto 0):="000000000";
 signal PR3_2bits,PR4_2bits,PR5_2bits :std_logic_vector(1 downto 0):="00";
 signal mux30_out,mux31_out,mux32_out,Imem_or_out,PR1_or_out,PR5_PC_out,PR3_temp_out:std_logic_vector(15 downto 0):=zeros;
-signal mux30_sel,mux31_sel,mux32_sel:std_logic:='0';
+signal mux30_sel,mux31_sel,mux32_sel,mux33_sel:std_logic:='0';
 
 constant add:std_logic_vector(3 downto 0):="0000";
 constant adc:std_logic_vector(3 downto 0):="0000";
@@ -53,13 +53,11 @@ constant jal:std_logic_vector(3 downto 0):="1000";
 constant jlr:std_logic_vector(3 downto 0):="1001";
 
 begin
+	mux25_sel1<='0';
+	mux25_sel0<='0';
+	mux33_sel<='0';
   main_control:process(PR2_IR_out,mult_out,PR3_opc_out,PR3_2bits,PR4_opc_out,PR4_wb_addr_out,PR3_d1_addr_out,PR3_d2_addr_out) is
     begin
-      --if((PR2_IR_out(15 downto 12)=lm or PR2_IR_out(15 downto 12)=sm) and (PR2_IR_out(7 downto 0)/="00000000") and (mult_out(7 downto 0)/="00000000")) then
-      --  PC_en<='0';
-      --  PR1_en<='0';
-      --  PR2_PC_en<='0';
-      --end if;
 
       if(((PR3_opc_out=add or PR3_opc_out=ndu) and PR3_2bits="00") or ((PR3_opc_out=adc or PR3_opc_out = ndc) and PR3_2bits="10")
           or ((PR3_opc_out=adz or PR3_opc_out=ndz) and PR3_2bits="01") or (PR3_opc_out=sw) or (PR3_opc_out=beq) or (PR3_opc_out=sm)) then
@@ -71,7 +69,7 @@ begin
             PR2_IR_en<='0';
             PR3_en<='0';
             PR4_en<='0';
-            mux26_sel<='1';
+            mux34_sel<='1';
 
           elsif((PR2_IR_out(15 downto 12)=lm or PR2_IR_out(15 downto 12)=sm) and (PR2_IR_out(7 downto 0)/="00000000") and (mult_out(7 downto 0)/="00000000")) then
           	PC_en<='0';
@@ -80,7 +78,7 @@ begin
 		        PR2_IR_en<='1';
             PR3_en<='1';
             PR4_en<='1';
-            mux26_sel<='0';
+            mux34_sel<='0';
           
           else
             PC_en<='1';
@@ -89,7 +87,7 @@ begin
 		        PR2_IR_en<='1';
 		        PR3_en<='1';
 		        PR4_en<='1';
-		        mux26_sel<='0';
+		        mux34_sel<='0';
           end if;
 
       elsif(PR3_opc_out = adi or PR3_opc_out = lw or PR3_opc_out = jlr or PR3_opc_out = lm) then
@@ -101,7 +99,7 @@ begin
              PR2_IR_en<='0';
              PR3_en<='0';
              PR4_en<='0';
-             mux26_sel<='1';
+             mux34_sel<='1';
 
           elsif ((PR2_IR_out(15 downto 12)=lm or PR2_IR_out(15 downto 12)=sm) and (PR2_IR_out(7 downto 0)/="00000000") and (mult_out(7 downto 0)/="00000000")) then
           	PC_en<='0';
@@ -110,7 +108,7 @@ begin
 		        PR2_IR_en<='1';
             PR3_en<='1';
             PR4_en<='1';
-            mux26_sel<='0';
+            mux34_sel<='0';
 
           else
           	PC_en<='1';
@@ -119,7 +117,7 @@ begin
 		        PR2_IR_en<='1';
 		        PR3_en<='1';
 		        PR4_en<='1';
-		        mux26_sel<='0';
+		        mux34_sel<='0';
           end if;
 
       else
@@ -130,7 +128,7 @@ begin
 		      PR2_IR_en<='1';
           PR3_en<='1';
           PR4_en<='1';
-          mux26_sel<='0';
+          mux34_sel<='0';
         else
 	        PC_en<='1';
 	        PR1_en<='1';
@@ -138,12 +136,62 @@ begin
 	        PR2_IR_en<='1';
 	        PR3_en<='1';
 	        PR4_en<='1';
-	        mux26_sel<='0';
+	        mux34_sel<='0';
 	      end if;
       end if;
   end process; 
 
-  -- Stage 1
+
+  --flushing: process(PR3_opc_out,PR3_wb_addr_out,mux13_sel,PR3_2bits,PR4_opc_out,PR4_wb_addr_out,PR2_IR_out,mux4_out) is
+  --	begin
+  --		if ((PR4_opc_out=lw or PR4_opc_out=lm) and PR4_wb_addr_out="111") then
+  --			mux25_sel1<='1';
+  --			mux25_sel0<='0';
+  --			mux31_sel<='1';
+  --			mux32_sel<='1';
+  --			mux33_sel<='1';
+  --			mux34_sel<='1';
+
+  --		elsif ((((PR3_opc_out=add or PR3_opc_out=ndu) and PR3_2bits="00") or (PR3_opc_out=adi) or (PR3_opc_out=lhi)) and PR3_wb_addr_out="111") then
+  --			mux25_sel1<='0';
+  --			mux25_sel0<='1';
+  --			mux31_sel<='1';
+  --			mux32_sel<='1';
+  --			mux33_sel<='1';
+  --			mux34_sel<='0';
+
+  --		elsif ((((PR3_opc_out=adc or PR3_opc_out=ndc) and PR3_2bits="10") or ((PR3_opc_out=adz or PR3_opc_out=ndz) and PR3_2bits="01"))
+  --						and PR3_wb_addr_out="111" and mux13_sel='1') then
+  --			mux25_sel1<='0';
+  --			mux25_sel0<='1';
+  --			mux31_sel<='1';
+  --			mux32_sel<='1';
+  --			mux33_sel<='1';
+  --			mux34_sel<='0';
+
+  --		else
+  --			mux25_sel1<='0';
+  --			mux25_sel0<='0';
+  --			mux31_sel<='0';
+  --			mux32_sel<='0';
+  --			mux33_sel<='0';
+  --			mux34_sel<='0';
+
+  --		end if;
+
+  --		if(PR2_IR_out(15 downto 12)=jlr or PR2_IR_out(15 downto 12)=jal or (PR2_IR_out(15 downto 12)=beq and xor_out=zeros)) then
+  --    	mux30_sel<='1';
+  --    	mux31_sel<='1';
+  --    	mux32_sel<='1';
+  --    else
+  --    	mux30_sel<='0';
+  --    	mux31_sel<='0';
+  --    	mux32_sel<='0';
+  --    end if;
+
+  --end process;
+  
+	-- Stage 1
   PC: dregister port map(din=>mux25_out, dout=>PC_out, wr_en=>PC_en, clk=>clk,reset=>reset);
   adder1 : sixteenbitadder port map(x=>PC_out,y=>"0000000000000001",z=>adder1_out);
   Imemory: asynch_mem port map(din=>zeros, dout=>Imem_data_out, rdbar=>'0', wrbar=>'1', addrin=>PC_out, reset=>reset, clk=>clk);
@@ -258,7 +306,7 @@ begin
   mux24: MUX21 port map(d1=>mux22_out, d2=>PR5_res_out, s=>mux24_sel, dout=>mux24_out);
 
   
-  forward_from_mux8_out: process(PR3_opc_out,PR3_wb_addr_out,mux17_out,mux2_out,mux13_sel,PR3_2bits) is
+  forward_from_mux8_out: process(PR3_opc_out,PR3_wb_addr_out,mux17_out,mux2_out,mux13_sel,PR3_2bits,PR2_IR_out,PR2_PC_out,PR3_PC_out) is
     
   	begin
 
@@ -317,7 +365,7 @@ begin
   end process;
 
 
-  forward_from_PR4_out: process(PR4_opc_out,PR4_wb_addr_out,mux17_out,mux2_out,PR4_truth_out,PR4_2bits,mux3_sel,mux14_sel) is
+  forward_from_PR4_out: process(PR3_opc_out,PR2_IR_out,PR2_PC_out,PR3_PC_out,PR4_opc_out,PR4_wb_addr_out,mux17_out,mux2_out,PR4_truth_out,PR4_2bits,mux3_sel,mux14_sel) is
       
       begin
       
@@ -366,7 +414,7 @@ begin
   		end if;
   end process;
 
-	forward_from_PR5_out: process(PR5_opc_out,PR5_wb_addr_out,mux17_out,mux2_out,PR5_truth_out,PR5_2bits,mux3_sel,mux14_sel,mux22_sel,mux27_sel) is  
+	forward_from_PR5_out: process(PR3_opc_out,PR2_IR_out,PR5_opc_out,PR2_PC_out,PR3_PC_out,PR5_wb_addr_out,mux17_out,mux2_out,PR5_truth_out,PR5_2bits,mux3_sel,mux14_sel,mux22_sel,mux27_sel) is  
       
 			begin
 
@@ -418,7 +466,7 @@ begin
   beqchecker: xor16 port map(x=>mux23_out, y=>mux24_out, s=>xor_out);
   adder2: sixteenbitadder port map(x=>PR2_PC_out, y=>mux1_out,z=>adder2_out);
   mux5:  MUX4X1 port map(d1=>adder1_out, d2=>adder2_out, d3=>mux23_out, d4=>mux23_out, s1=>mux5_sel1, s0=>mux5_sel0, dout=>mux5_out);
-  mux25: MUX21 port map(d1=>mux5_out, d2=>PR5_res_out, s=>mux25_sel, dout=>mux25_out);  -- if R7 changes then PC has to be updated
+  mux25: MUX4X1 port map(d1=>mux5_out, d2=>mux8_out, d3=>Dmem_data_out, d4=>PR3_temp_out, s1=>mux25_sel1, s0=>mux25_sel0, dout=>mux25_out);  -- if R7 changes then PC has to be updated
   lmbit <= (PR2_IR_out(7) or PR2_IR_out(6) or PR2_IR_out(5) or PR2_IR_out(4) or PR2_IR_out(3) or PR2_IR_out(2) or PR2_IR_out(1) or PR2_IR_out(0));
  
   -- PR3 registers
@@ -432,7 +480,7 @@ begin
   PR3_d1_value : dregister port map(din=>mux23_out, dout=>PR3_d1_out, wr_en=>PR3_en, clk=>clk,reset=>reset);
   PR3_d2_value : dregister port map(din=>mux24_out, dout=>PR3_d2_out, wr_en=>PR3_en, clk=>clk,reset=>reset);
   PR3_Imm: dregister port map(din=>mux1_out, dout=>PR3_imm_out, wr_en=>PR3_en, clk=>clk,reset=>reset);
-  PR3_opc: dregister generic map(nbits=>4) port map(din=>PR2_IR_out(15 downto 12), dout=>PR3_opc_out, wr_en=>PR3_en, clk=>clk,reset=>reset);
+  PR3_opc: dregister generic map(nbits=>4) port map(din=>mux33_out, dout=>PR3_opc_out, wr_en=>PR3_en, clk=>clk,reset=>reset);
   PR3_lm: onedregister port map(din=>lmbit, dout=>PR3_lmbit, wr_en=>PR3_en, clk=>clk,reset=>reset);
 
   PR3_last2bits: dregister generic map(nbits=>2) port map(din=>PR2_IR_out(1 downto 0),dout=>PR3_2bits, wr_en=>PR3_en, clk=>clk,reset=>reset);
@@ -480,7 +528,8 @@ begin
   mux6: MUX21 port map(d1=>mux16_out, d2=>PR3_d2_out, s=>'0', dout=>mux6_out);    ------i changed here if it doesn't work change it back
   mux7: MUX4X1 port map(d1=>mux20_out, d2=>"0000000000000001", d3=>PR3_imm_out, d4=>zeros, s1=>mux7_sel1, s0=>mux7_sel0, dout=>mux7_out);
 
-  mux26: MUX21 generic map(nbits=>4) port map(d1=>PR3_opc_out, d2=>"1111", s=>mux26_sel, dout=>mux26_out);
+  mux33: MUX21 generic map(nbits=>4) port map(d1=>PR2_IR_out(15 downto 12), d2=>"1111", s=>mux33_sel, dout=>mux33_out);
+  mux34: MUX21 generic map(nbits=>4) port map(d1=>PR3_opc_out, d2=>"1111", s=>mux34_sel, dout=>mux34_out);
 
   ---------------PR5 to Alu_input forwarding and stalling logic for lw and for lm------------
 process(PR3_d1_addr_out,PR3_d2_addr_out,PR4_wb_addr_out,PR5_wb_addr_out,PR3_opc_out,PR4_opc_out,PR5_opc_out,PR3_2bits) is
@@ -607,14 +656,14 @@ end process;
   end process;
 
   -- PR4 registers 
-  PR4_opc_en<=(PR4_en or mux26_sel);
+  PR4_opc_en<=(PR4_en or mux34_sel);
   PR4_PC: dregister port map(din=>PR3_PC_out, dout=>PR4_PC_out, wr_en=>PR4_en, clk=>clk,reset=>reset);
   --PR4_d1 : dregister port map(din=>PR3_d1_out, dout=>PR4_d1_out, wr_en=>PR4_en, clk=>clk,reset=>reset);
   --PR4_d2 : dregister port map(din=>PR3_d2_out, dout=>PR4_d2_out, wr_en=>PR4_en, clk=>clk,reset=>reset);
   PR4_d1 : dregister port map(din=>mux16_out, dout=>PR4_d1_out, wr_en=>PR4_en, clk=>clk,reset=>reset);
   PR4_d2 : dregister port map(din=>mux20_out, dout=>PR4_d2_out, wr_en=>PR4_en, clk=>clk,reset=>reset);
   PR4_result: dregister port map(din=>mux8_out, dout=>PR4_res_out, wr_en=>PR4_en, clk=>clk,reset=>reset);
-  PR4_opc: dregister generic map(nbits=>4) port map(din=>mux26_out, dout=>PR4_opc_out, wr_en=>PR4_opc_en, clk=>clk,reset=>reset);
+  PR4_opc: dregister generic map(nbits=>4) port map(din=>mux34_out, dout=>PR4_opc_out, wr_en=>PR4_opc_en, clk=>clk,reset=>reset);
   PR4_wb_addr: dregister generic map(nbits=>3) port map(din=>PR3_wb_addr_out, dout=>PR4_wb_addr_out, wr_en=>PR4_en, clk=>clk,reset=>reset);
   PR4_ct : onedregister port map(din=>PR4_cin, dout=>PR4_cout, wr_en=>PR4_en, clk=>clk,reset=>reset);
   PR4_zt : onedregister port map(din=>PR4_zin, dout=>PR4_zout, wr_en=>PR4_en, clk=>clk,reset=>reset);
@@ -712,5 +761,5 @@ end process;
   end process;
 
   --r7_en <= (((P) and (PR5_wb_addr_out(2)) and (PR5_wb_addr_out(1)) and (PR5_wb_addr_out(0))) or PC_en);
-  mux25_sel <= (PR5_wb_addr_out(2) and PR5_wb_addr_out(1) and PR5_wb_addr_out(0)) and P;
+  --mux25_sel <= (PR5_wb_addr_out(2) and PR5_wb_addr_out(1) and PR5_wb_addr_out(0)) and P;
 end behave;
