@@ -34,7 +34,7 @@ signal PR3_opc_out,PR4_opc_out,PR5_opc_out,mux34_out,mux33_out: std_logic_vector
 signal ZE_out:std_logic_vector(8 downto 0):="000000000";
 signal PR3_2bits,PR4_2bits,PR5_2bits :std_logic_vector(1 downto 0):="00";
 signal mux30_out,mux31_out,mux32_out,Imem_or_out,PR1_or_out,PR5_PC_out,PR3_temp_out:std_logic_vector(15 downto 0):=zeros;
-signal mux30_sel,mux31_sel,mux32_sel,mux33_sel:std_logic:='0';
+signal mux30_sel,mux31_sel,mux32_sel,mux33_sel,eta,mux12_sel,mux12_out,mux50_out:std_logic:='0';
 
 constant add:std_logic_vector(3 downto 0):="0000";
 constant adc:std_logic_vector(3 downto 0):="0000";
@@ -593,11 +593,11 @@ end process;
 
   alu_inside:alu port map(X=>mux6_out, Y=>mux7_out, Z=>alu_out, OPC=>PR3_opc_out, CF=>PR4_cin, ZF=>PR4_zin);
   mux8: MUX4X1 port map(d1=>alu_out, d2=>PR3_temp_out, d3=>PR3_imm_out, d4=>zeros, s1=>mux8_sel1, s0=>mux8_sel0, dout=>mux8_out); 
-
   mux13: singlebitMUX port map(d1=>'0', d2=>'1', s=>mux13_sel, dout=>mux13_out);
 
+  
   truth_register:process(PR3_opc_out,PR4_opc_out,PR5_opc_out,PR4_truth_out,PR5_truth_out,PR4_cout,PR4_zout,PR5_cout,PR5_zout,CF,ZF,
-                        PR3_2bits,PR4_2bits,PR5_2bits) is
+                        PR3_2bits,PR4_2bits,PR5_2bits,eta) is
     begin
       if(((PR3_opc_out=add or PR3_opc_out=ndu) and PR3_2bits="00") or PR3_opc_out=adi) then
         mux13_sel<='1';
@@ -617,6 +617,7 @@ end process;
           else
             mux13_sel<='0';
           end if;
+        
         else
           if(CF='1') then
             mux13_sel<='1';
@@ -634,6 +635,13 @@ end process;
             mux13_sel<='0';
           end if;
         
+        elsif(PR4_opc_out=lw) then
+        	if(eta='1') then
+        		mux13_sel<='1';
+        	else
+        		mux13_sel<='0';
+        	end if;
+
         elsif((((PR5_opc_out=add or PR5_opc_out=ndu) and PR5_2bits="00") or ((PR5_opc_out=adc or PR5_opc_out=ndc) and PR5_2bits="10") or ((PR5_opc_out=adz or PR5_opc_out=ndz) and PR5_2bits="01") or PR5_opc_out=adi) and PR5_truth_out='1')  then
           if(PR5_zout='1') then
             mux13_sel<='1';
@@ -641,6 +649,13 @@ end process;
             mux13_sel<='0';
           end if;
         
+        elsif (PR5_opc_out=lw) then
+        	if(PR5_zout='1') then
+        		mux13_sel<='1';
+        	else
+        		mux13_sel<='0';
+        	end if;
+
         else
           if(ZF='1') then
             mux13_sel<='1';
@@ -708,17 +723,20 @@ end process;
   PR5_opc: dregister generic map(nbits=>4) port map(din=>PR4_opc_out, dout=>PR5_opc_out, wr_en=>PR5_en, clk=>clk,reset=>reset);
 
   PR5_ct : onedregister port map(din=>PR4_cout, dout=>PR5_cout, wr_en=>PR5_en, clk=>clk,reset=>reset);
-  PR5_zt: onedregister port map(din=>PR4_zout, dout=>PR5_zout, wr_en=>PR5_en, clk=>clk,reset=>reset);
-  PR5_truth: onedregister port map(din=>PR4_truth_out, dout=>PR5_truth_out, wr_en=>PR5_en, clk=>clk,reset=>reset);
+  PR5_zt: onedregister port map(din=>mux12_out, dout=>PR5_zout, wr_en=>PR5_en, clk=>clk,reset=>reset);
+  PR5_truth: onedregister port map(din=>mux50_out, dout=>PR5_truth_out, wr_en=>PR5_en, clk=>clk,reset=>reset);
   PR5_lm: onedregister port map(din=>PR4_lmbit, dout=>PR5_lmbit, wr_en=>PR5_en, clk=>clk,reset=>reset);
 
   PR5_last2bits: dregister generic map(nbits=>2) port map(din=>PR4_2bits, dout=>PR5_2bits, wr_en=>PR5_en, clk=>clk,reset=>reset);
 
-  --mux12: MUX21 generic map(nbits=>1) port map(d1=>PR4_zout, d2=>eta, s=>mux12_sel, dout=>mux12_out);
+  mux12: singlebitMUX port map(d1=>PR4_zout, d2=>eta, s=>mux12_sel, dout=>mux12_out);
+  mux12_sel<= (not(PR4_opc_out(3)) and PR4_opc_out(2) and not(PR4_opc_out(1)) and not(PR4_opc_out(0)));
 
-  --eta<=not(Dmem_data_out(15) or Dmem_data_out(14) or Dmem_data_out(13) or Dmem_data_out(12) or Dmem_data_out(11) or Dmem_data_out(10) 
-  --      or Dmem_data_out(9) or Dmem_data_out(8) or Dmem_data_out(7) or Dmem_data_out(6) or Dmem_data_out(5) or Dmem_data_out(4)
-  --      or Dmem_data_out(3) or Dmem_data_out(2) or Dmem_data_out(1) or Dmem_data_out(0));
+  mux50: singlebitMUX port map(d1=>PR4_truth_out, d2=>'1', s=>mux12_sel, dout=>mux50_out);
+
+  eta<=not(Dmem_data_out(15) or Dmem_data_out(14) or Dmem_data_out(13) or Dmem_data_out(12) or Dmem_data_out(11) or Dmem_data_out(10) 
+        or Dmem_data_out(9) or Dmem_data_out(8) or Dmem_data_out(7) or Dmem_data_out(6) or Dmem_data_out(5) or Dmem_data_out(4)
+        or Dmem_data_out(3) or Dmem_data_out(2) or Dmem_data_out(1) or Dmem_data_out(0));
 
   carry_flag: onedregister port map(din=>PR5_cout, dout=>CF, wr_en=>c_en, clk=>clk,reset=>reset);
   zero_flag: onedregister port map(din=>PR5_zout, dout=>ZF, wr_en=>z_en, clk=>clk,reset=>reset);
@@ -733,6 +751,10 @@ end process;
 
       if ((((PR5_opc_out=add or PR5_opc_out=ndu) and PR5_2bits="00") or PR5_opc_out=adi or ((PR5_opc_out=adc or PR5_opc_out=ndc) and PR5_2bits="10") or ((PR5_opc_out=adz or PR5_opc_out=ndz) and PR5_2bits="01")) and PR5_truth_out='1') then
         z_en<='1';
+
+      elsif(PR5_opc_out=lw) then
+      	z_en<='1';
+      
       else
         z_en<='0';
       end if;
